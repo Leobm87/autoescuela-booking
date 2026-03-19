@@ -966,7 +966,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="header-btn" onclick="renderWeek()" title="Actualizar">&#8635;</button>
+        <button class="header-btn" onclick="refreshAll()" title="Actualizar">&#8635;</button>
       </div>
     </div>
   </div>
@@ -1263,6 +1263,17 @@ async function showApp() {
     selectedDay = dow - 1; // Hoy (0=Lun)
   }
   switchView('booking');
+}
+
+async function refreshAll() {
+  // Reload pair info
+  const {data:parejas} = await sb.from('ae_parejas')
+    .select('*,alumno1:ae_alumnos!alumno1_id(id,nombre),alumno2:ae_alumnos!alumno2_id(id,nombre)')
+    .eq('activo', true)
+    .or(`alumno1_id.eq.${currentUser.id},alumno2_id.eq.${currentUser.id}`);
+  myPareja = (parejas && parejas.length > 0) ? parejas[0] : null;
+  await renderWeek();
+  toast('Actualizado', 'success');
 }
 
 function switchView(view) {
