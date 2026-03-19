@@ -1619,7 +1619,7 @@ function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set(),
           </div>
           <div style="display:flex;gap:6px;align-items:center">
             <span class="slot-booked-badge">Ocupado</span>
-            <button onclick="toggleDispQuick('${dateStr}','${timeStr}','${timeShort}')" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:2px solid ${isDispB?'var(--success)':'#cbd5e1'};background:${isDispB?'var(--success)':'white'};color:${isDispB?'white':'#94a3b8'};font-family:inherit">${isDispB?'&#10003; Disp.':'Disp.'}</button>
+            <button onclick="toggleDispQuick('${dateStr}','${timeStr}','${timeShort}')" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:2px solid ${isDispB?'#8b5cf6':'#cbd5e1'};background:${isDispB?'#8b5cf6':'white'};color:${isDispB?'white':'#94a3b8'};font-family:inherit">${isDispB?'&#10003; Disp.':'Disp.'}</button>
           </div>
         </div>`;
     }
@@ -1646,7 +1646,7 @@ function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set(),
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           <button class="slot-action-btn" onclick="confirmBook('${dateStr}','${timeStr}','${timeShort}','${DAYS[selectedDay]}')">Reservar</button>
-          <button onclick="event.stopPropagation();toggleDispQuick('${dateStr}','${timeStr}','${timeShort}')" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:2px solid ${isDisp?'var(--success)':'#cbd5e1'};background:${isDisp?'var(--success)':'white'};color:${isDisp?'white':'#94a3b8'};font-family:inherit;transition:all 0.2s">${isDisp?'&#10003; Disp.':'Disp.'}</button>
+          <button onclick="event.stopPropagation();toggleDispQuick('${dateStr}','${timeStr}','${timeShort}')" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:2px solid ${isDisp?'#8b5cf6':'#cbd5e1'};background:${isDisp?'#8b5cf6':'white'};color:${isDisp?'white':'#94a3b8'};font-family:inherit;transition:all 0.2s">${isDisp?'&#10003; Disp.':'Disp.'}</button>
         </div>
       </div>`;
   }).join('');
