@@ -894,8 +894,12 @@
         </div>
       </div>
       <button class="btn btn-primary" onclick="login()" id="loginBtn">Acceder</button>
+      <div id="registerSection" class="hidden" style="margin-top:20px;padding-top:20px;border-top:2px solid var(--border);text-align:center">
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px">Nuevo alumno?</p>
+        <button class="btn btn-outline" style="width:100%;padding:14px;font-size:0.95rem;border-color:var(--primary-light);color:var(--primary)" onclick="showRegister()">Crear cuenta nueva</button>
+      </div>
       <div class="login-footer">
-        <a href="#" onclick="showRegister(); return false" id="registerLink" class="hidden">Registrarme</a>
+        <span></span>
         <a href="admin.html">Panel admin</a>
       </div>
     </div>
@@ -1117,7 +1121,7 @@ async function init() {
 
   // Show register link if enabled
   if (cfg.permitir_registro === 'true') {
-    document.getElementById('registerLink').classList.remove('hidden');
+    document.getElementById('registerSection').classList.remove('hidden');
   }
 
   const { data: s } = await sb.from('ae_slots').select('*').eq('activo', true).order('hora_inicio');
