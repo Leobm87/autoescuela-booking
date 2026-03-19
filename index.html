@@ -569,6 +569,22 @@
     }
     .cancel-x:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
+    /* Pending */
+    .slot-item.pending {
+      background: var(--warning-bg);
+      border-color: #fde68a;
+    }
+    .slot-item.pending .slot-separator { background: var(--warning); }
+    .slot-item.pending .slot-status-text { color: var(--warning); }
+    .pending-badge {
+      background: var(--warning);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
     /* Booked */
     .slot-item.booked {
       background: #fafafa;
@@ -1296,7 +1312,7 @@ async function renderWeek() {
 
   // Fetch data
   const [resReservas, resBlocked, resAvisos] = await Promise.all([
-    sb.from('ae_reservas').select('*, ae_alumnos(nombre)').gte('fecha', ws).lte('fecha', we).eq('estado', 'confirmada'),
+    sb.from('ae_reservas').select('*, ae_alumnos(nombre)').gte('fecha', ws).lte('fecha', we).in('estado', ['pendiente','confirmada']),
     sb.from('ae_dias_bloqueados').select('*').gte('fecha', ws).lte('fecha', we),
     sb.from('ae_avisos').select('*').eq('activo', true).order('created_at', {ascending: false}).limit(3)
   ]);
@@ -1322,10 +1338,10 @@ async function renderWeek() {
   const myWeek = weekReservas.filter(r => r.alumno_id === currentUser.id);
   const maxW = parseInt(cfg.max_clases_alumno_semana || '2');
   document.getElementById('statBooked').textContent = myWeek.length;
-  document.getElementById('statRemaining').textContent = Math.max(0, maxW - myWeek.length);
+  document.getElementById('statRemaining').textContent = currentUser.sin_limite ? '\u221E' : Math.max(0, maxW - myWeek.length);
 
   const { count } = await sb.from('ae_reservas').select('*', {count:'exact',head:true})
-    .eq('alumno_id', currentUser.id).eq('estado', 'confirmada');
+    .eq('alumno_id', currentUser.id).in('estado', ['pendiente','confirmada']);
   document.getElementById('statTotal').textContent = count || 0;
 
   // Day tabs - hide past days for students
@@ -1390,7 +1406,7 @@ function renderSlots(dates) {
   const dayRes = weekReservas.filter(r => r.fecha === dateStr);
   const myWeek = weekReservas.filter(r => r.alumno_id === currentUser.id);
   const maxW = parseInt(cfg.max_clases_alumno_semana || '2');
-  const canBook = myWeek.length < maxW;
+  const canBook = currentUser.sin_limite || myWeek.length < maxW;
   const dur = parseInt(cfg.duracion_clase_min || '45');
 
   document.getElementById('slotsTitle').textContent =
@@ -1428,15 +1444,19 @@ function renderSlots(dates) {
     }
 
     if (isMine) {
+      const isPending = reserva.estado === 'pendiente';
       return `
-        <div class="slot-item mine fade-in">
+        <div class="slot-item ${isPending ? 'pending' : 'mine'} fade-in">
           <div class="slot-left">
             <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
             <div class="slot-separator"></div>
-            <div class="slot-info"><div class="slot-status-text">Tu clase</div><div class="slot-detail">${dur} min</div></div>
+            <div class="slot-info">
+              <div class="slot-status-text">${isPending ? 'Pendiente' : 'Confirmada'}</div>
+              <div class="slot-detail">${isPending ? 'Esperando confirmacion del profesor' : dur + ' min'}</div>
+            </div>
           </div>
           <div class="mine-actions">
-            <span class="mine-badge">Reservada</span>
+            <span class="${isPending ? 'pending-badge' : 'mine-badge'}">${isPending ? 'Pendiente' : 'Confirmada'}</span>
             ${!slotPast ? `<button class="cancel-x" onclick="confirmCancel('${reserva.id}','${timeShort}','${DAYS[selectedDay]}')">&#10005;</button>` : ''}
           </div>
         </div>`;
@@ -1500,16 +1520,17 @@ function renderMyBookings(dates) {
     const d = new Date(b.fecha + 'T00:00:00');
     const di = d.getDay() - 1;
     const end = addMins(b.hora_inicio, dur);
+    const isPend = b.estado === 'pendiente';
     return `
-      <div class="my-booking-item fade-in">
+      <div class="my-booking-item fade-in" style="${isPend ? 'background:linear-gradient(135deg,#fffbeb,#fef3c7)' : ''}">
         <div class="my-booking-left">
-          <div class="my-booking-day">
+          <div class="my-booking-day" style="${isPend ? 'background:var(--warning)' : ''}">
             <span class="mbd-day">${DAYS_SHORT[di >= 0 ? di : 0]}</span>
             <span class="mbd-num">${d.getDate()}</span>
           </div>
           <div class="my-booking-info">
             <div class="mbi-time">${b.hora_inicio.slice(0,5)} - ${end}</div>
-            <div class="mbi-detail">${DAYS[di >= 0 ? di : 0]} - ${dur} minutos</div>
+            <div class="mbi-detail">${isPend ? 'Pendiente de confirmacion' : DAYS[di >= 0 ? di : 0] + ' - Confirmada'}</div>
           </div>
         </div>
         <button class="cancel-x" onclick="confirmCancel('${b.id}','${b.hora_inicio.slice(0,5)}','${DAYS[di >= 0 ? di : 0]}')">&#10005;</button>
@@ -1556,7 +1577,7 @@ async function modalAction() {
 async function bookSlot(fecha, hora) {
   try {
     const { data, error } = await sb.from('ae_reservas').insert({
-      alumno_id: currentUser.id, fecha, hora_inicio: hora, estado: 'confirmada'
+      alumno_id: currentUser.id, fecha, hora_inicio: hora, estado: 'pendiente'
     }).select();
 
     if (error) {
@@ -1572,7 +1593,7 @@ async function bookSlot(fecha, hora) {
       return;
     }
 
-    toast('Clase reservada correctamente', 'success');
+    toast('Solicitud enviada - pendiente de confirmacion', 'success');
     await renderWeek();
   } catch(e) {
     toast('Error inesperado: ' + e.message, 'error');
@@ -1597,9 +1618,9 @@ async function renderProfile() {
   document.getElementById('profilePhone').textContent = currentUser.telefono;
 
   const [resTotal, resCancelled, resWeek, resHistory] = await Promise.all([
-    sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).eq('estado','confirmada'),
+    sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).in('estado',['pendiente','confirmada']),
     sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).eq('estado','cancelada'),
-    sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).eq('estado','confirmada')
+    sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).in('estado',['pendiente','confirmada'])
       .gte('fecha',fmtDate(getWeekDates(0)[0])).lte('fecha',fmtDate(getWeekDates(0)[4])),
     sb.from('ae_reservas').select('*').eq('alumno_id',currentUser.id).order('fecha',{ascending:false}).order('hora_inicio',{ascending:false}).limit(20)
   ]);

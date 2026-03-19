@@ -261,12 +261,21 @@
     <div class="stats-grid" id="statsGrid" style="margin-top:4px"></div>
 
     <div class="tabs" id="tabsBar">
-      <button class="tab active" data-tab="agenda" onclick="switchTab('agenda')">&#128197; Agenda</button>
+      <button class="tab active" data-tab="pendientes" onclick="switchTab('pendientes')">&#128276; Pendientes</button>
+      <button class="tab" data-tab="agenda" onclick="switchTab('agenda')">&#128197; Agenda</button>
       <button class="tab" data-tab="alumnos" onclick="switchTab('alumnos')">&#128101; Alumnos</button>
       <button class="tab" data-tab="horarios" onclick="switchTab('horarios')">&#9200; Horarios</button>
       <button class="tab" data-tab="avisos" onclick="switchTab('avisos')">&#128227; Avisos</button>
       <button class="tab" data-tab="bloqueos" onclick="switchTab('bloqueos')">&#128683; Bloqueos</button>
       <button class="tab" data-tab="config" onclick="switchTab('config')">&#9881; Config</button>
+    </div>
+
+    <!-- TAB: PENDIENTES -->
+    <div id="tab-pendientes">
+      <div class="card">
+        <div class="card-header"><h3>&#128276; Reservas pendientes de aprobacion</h3></div>
+        <div class="card-body" id="pendientesList"></div>
+      </div>
     </div>
 
     <!-- TAB: AGENDA -->
@@ -457,7 +466,7 @@ async function loadAll() {
   document.getElementById('cfgDuration').value = cfg.duracion_clase_min||45;
   document.getElementById('cfgAdminPin').value = cfg.admin_pin||'0000';
   document.getElementById('cfgRegister').value = cfg.permitir_registro||'true';
-  await Promise.all([loadStudents(),loadSlots(),loadAgenda(),loadStats(),loadAvisos(),loadBlocked()]);
+  await Promise.all([loadStudents(),loadSlots(),loadAgenda(),loadStats(),loadAvisos(),loadBlocked(),loadPendientes()]);
 }
 
 // STATS
@@ -468,22 +477,23 @@ async function loadStats() {
     .gte('fecha',fmt(wd[0])).lte('fecha',fmt(wd[4])).eq('estado','confirmada');
   const totalSlots = allSlots.filter(s=>s.activo).length;
   const occ = totalSlots>0 ? Math.round((weekB||0)/totalSlots*100) : 0;
-  const {count:todayB} = await sb.from('ae_reservas').select('*',{count:'exact',head:true})
-    .eq('fecha',fmt(new Date())).eq('estado','confirmada');
+  const {count:pendingCount} = await sb.from('ae_reservas').select('*',{count:'exact',head:true})
+    .eq('estado','pendiente');
 
   document.getElementById('statsGrid').innerHTML = `
     <div class="stat-box"><div class="stat-icon blue">&#128101;</div><div class="stat-info"><div class="stat-num">${total||0}</div><div class="stat-lbl">Alumnos activos</div></div></div>
-    <div class="stat-box"><div class="stat-icon green">&#128197;</div><div class="stat-info"><div class="stat-num">${weekB||0}</div><div class="stat-lbl">Reservas semana</div></div></div>
-    <div class="stat-box"><div class="stat-icon orange">&#128338;</div><div class="stat-info"><div class="stat-num">${todayB||0}</div><div class="stat-lbl">Clases hoy</div></div></div>
+    <div class="stat-box"><div class="stat-icon green">&#128197;</div><div class="stat-info"><div class="stat-num">${weekB||0}</div><div class="stat-lbl">Confirmadas semana</div></div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="switchTab('pendientes')"><div class="stat-icon ${pendingCount>0?'red':'orange'}">&#128276;</div><div class="stat-info"><div class="stat-num">${pendingCount||0}</div><div class="stat-lbl">Pendientes</div></div></div>
     <div class="stat-box"><div class="stat-icon ${occ>80?'red':'blue'}">&#128200;</div><div class="stat-info"><div class="stat-num">${occ}%</div><div class="stat-lbl">Ocupacion semana</div></div></div>
   `;
 }
 
 // TABS
 function switchTab(name) {
-  const tabs = ['agenda','alumnos','horarios','avisos','bloqueos','config'];
+  const tabs = ['pendientes','agenda','alumnos','horarios','avisos','bloqueos','config'];
   tabs.forEach(t => document.getElementById('tab-'+t).classList.toggle('hidden', t!==name));
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
+  if (name === 'pendientes') loadPendientes();
 }
 
 // STUDENTS
@@ -508,12 +518,13 @@ async function renderStudents(list) {
 
   document.getElementById('studentsTable').innerHTML = list.map(s=>`
     <tr style="${s.activo?'':'opacity:0.5'}">
-      <td><strong>${esc(s.nombre)}</strong></td>
+      <td><strong>${esc(s.nombre)}</strong> ${s.sin_limite?'<span class="badge" style="background:#fef3c7;color:#92400e">Sin limite</span>':''}</td>
       <td>${s.telefono}</td>
       <td><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px">${s.pin}</code></td>
-      <td><span class="badge badge-blue">${cnt[s.id]||0}/${cfg.max_clases_alumno_semana||2}</span></td>
+      <td><span class="badge badge-blue">${cnt[s.id]||0}/${s.sin_limite?'&#8734;':(cfg.max_clases_alumno_semana||2)}</span></td>
       <td>${s.activo?'<span class="badge badge-green">Activo</span>':'<span class="badge badge-red">Inactivo</span>'}</td>
       <td style="white-space:nowrap">
+        <button class="btn btn-sm ${s.sin_limite?'btn-outline':'btn-warning'}" onclick="toggleSinLimite('${s.id}',${!s.sin_limite})" title="${s.sin_limite?'Poner limite':'Quitar limite'}">${s.sin_limite?'Con limite':'Sin limite'}</button>
         <button class="btn btn-sm ${s.activo?'btn-warning':'btn-success'}" onclick="toggleStudent('${s.id}',${!s.activo})">${s.activo?'Desactivar':'Activar'}</button>
         <button class="btn btn-sm btn-danger" onclick="deleteStudent('${s.id}','${esc(s.nombre)}')">Eliminar</button>
       </td>
@@ -594,7 +605,7 @@ async function loadAgenda() {
     `${dates[0].getDate()} ${MONTHS_SHORT[dates[0].getMonth()]} - ${dates[4].getDate()} ${MONTHS_SHORT[dates[4].getMonth()]}`;
 
   const {data:res} = await sb.from('ae_reservas').select('*,ae_alumnos(nombre,telefono)')
-    .gte('fecha',fmt(dates[0])).lte('fecha',fmt(dates[4])).eq('estado','confirmada').order('hora_inicio');
+    .gte('fecha',fmt(dates[0])).lte('fecha',fmt(dates[4])).in('estado',['pendiente','confirmada']).order('hora_inicio');
   const {data:blocked} = await sb.from('ae_dias_bloqueados').select('*')
     .gte('fecha',fmt(dates[0])).lte('fecha',fmt(dates[4]));
   const blockedSet = new Set((blocked||[]).map(b=>b.fecha));
@@ -625,11 +636,15 @@ async function loadAgenda() {
         ${daySlots.map(slot => {
           const r = dayRes.find(x=>x.hora_inicio.slice(0,5)===slot.hora_inicio.slice(0,5));
           const end = addMins(slot.hora_inicio,dur);
+          const isPend = r && r.estado === 'pendiente';
           return r ? `
-            <div class="agenda-row">
+            <div class="agenda-row" style="${isPend?'background:#fffbeb;border-left:3px solid var(--warning)':''}">
               <span class="agenda-time">${slot.hora_inicio.slice(0,5)} - ${end}</span>
-              <span class="agenda-student"><strong>${esc(r.ae_alumnos.nombre)}</strong> <small style="color:var(--text-muted)">${r.ae_alumnos.telefono}</small></span>
-              <button class="btn btn-sm btn-danger" onclick="adminCancel('${r.id}')">Cancelar</button>
+              <span class="agenda-student"><strong>${esc(r.ae_alumnos.nombre)}</strong> <small style="color:var(--text-muted)">${r.ae_alumnos.telefono}</small> ${isPend?'<span class="badge" style="background:#fef3c7;color:#92400e;margin-left:4px">Pendiente</span>':'<span class="badge badge-green" style="margin-left:4px">Confirmada</span>'}</span>
+              <div style="display:flex;gap:4px">
+                ${isPend?'<button class="btn btn-sm btn-success" onclick="approveBooking(\''+r.id+'\')">Aprobar</button>':''}
+                <button class="btn btn-sm btn-danger" onclick="adminCancel('${r.id}')">Cancelar</button>
+              </div>
             </div>
           ` : `
             <div class="agenda-row free">
@@ -739,6 +754,55 @@ function getWeekDates(off) {
 }
 function fmt(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
 function addMins(t,m){const[h,min]=t.split(':').map(Number);const tot=h*60+min+m;return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;}
+// PENDIENTES
+async function loadPendientes() {
+  const {data} = await sb.from('ae_reservas').select('*,ae_alumnos(nombre,telefono)')
+    .eq('estado','pendiente').order('created_at',{ascending:true});
+  const list = data || [];
+  if (!list.length) {
+    document.getElementById('pendientesList').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px">No hay reservas pendientes</p>';
+    return;
+  }
+  document.getElementById('pendientesList').innerHTML = list.map(r => {
+    const d = new Date(r.fecha+'T00:00:00');
+    const di = d.getDay()-1;
+    const dur = parseInt(cfg.duracion_clase_min||'45');
+    const end = addMins(r.hora_inicio, dur);
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border:2px solid #fde68a;background:#fffbeb;border-radius:12px;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:0.95rem">${esc(r.ae_alumnos.nombre)}</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary)">${r.ae_alumnos.telefono}</div>
+          <div style="font-size:0.85rem;margin-top:4px"><strong>${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</strong> - ${r.hora_inicio.slice(0,5)} a ${end}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-success" onclick="approveBooking('${r.id}')">Aprobar</button>
+          <button class="btn btn-sm btn-danger" onclick="rejectBooking('${r.id}')">Rechazar</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function approveBooking(id) {
+  await sb.from('ae_reservas').update({estado:'confirmada'}).eq('id',id);
+  toast('Reserva aprobada','success');
+  loadPendientes(); loadAgenda(); loadStats();
+}
+
+async function rejectBooking(id) {
+  if(!confirm('Rechazar esta reserva?')) return;
+  await sb.from('ae_reservas').update({estado:'rechazada'}).eq('id',id);
+  toast('Reserva rechazada','success');
+  loadPendientes(); loadAgenda(); loadStats();
+}
+
+// SIN LIMITE
+async function toggleSinLimite(id, val) {
+  await sb.from('ae_alumnos').update({sin_limite:val}).eq('id',id);
+  toast(val?'Alumno sin limite de clases':'Limite de clases restaurado','success');
+  loadStudents();
+}
+
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 // Auto-refresh: actualiza agenda y stats cada 10 segundos
@@ -752,7 +816,7 @@ setInterval(()=>{
 sb.channel('admin-reservas')
   .on('postgres_changes', {event:'*', schema:'public', table:'ae_reservas'}, ()=>{
     if(!document.getElementById('adminPanel').classList.contains('hidden')){
-      loadAgenda(); loadStats(); loadStudents();
+      loadAgenda(); loadStats(); loadStudents(); loadPendientes();
     }
   })
   .subscribe();
