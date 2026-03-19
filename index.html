@@ -1015,9 +1015,26 @@
     <!-- TAB CONTENT: Pareja -->
     <div id="bookingTabPareja" class="hidden">
       <div id="pairSection">
+        <!-- Existing pair booking status -->
+        <div id="pairStatus"></div>
+
+        <!-- Week nav for pair -->
+        <div class="week-nav" id="pairWeekNav">
+          <button class="week-nav-btn" onclick="changePairWeek(-1)">&#9664;</button>
+          <div style="text-align:center">
+            <div class="week-nav-label" id="pairWeekLabel"></div>
+            <div class="week-nav-sub" id="pairWeekSub">Elige dia y hora en pareja</div>
+          </div>
+          <button class="week-nav-btn" onclick="changePairWeek(1)">&#9654;</button>
+        </div>
+
+        <!-- Day tabs for pair -->
+        <div class="day-tabs" id="pairDayTabs"></div>
+
+        <!-- Pair slots -->
         <div class="section-card" style="border:2px solid #a78bfa">
           <div class="section-header" style="background:#f5f3ff">
-            <h3 style="color:#7c3aed">&#128101; Clase en pareja</h3>
+            <h3 style="color:#7c3aed" id="pairSlotsTitle">Horarios en pareja</h3>
             <span id="pairPartnerName" style="font-size:0.8rem;color:#7c3aed;font-weight:600"></span>
           </div>
           <div class="section-body" id="pairContent"></div>
@@ -1851,219 +1868,232 @@ function renderMyPairBookings(dates) {
 
 // PAIR BOOKING (3-step: chooser picks 90min → partner accepts/rejects → admin confirms)
 // =============================================
+let pairWeekOff = 0;
+let pairSelectedDay = 0;
+
+function changePairWeek(d) { pairWeekOff += d; renderPairSection(getWeekDates(weekOffset), new Set(), new Set()); }
+function pairSelectDay(i) { pairSelectedDay = i; renderPairSection(getWeekDates(weekOffset), new Set(), new Set()); }
+
 async function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
-  if (!myPareja) {
-    document.getElementById('pairSection').classList.add('hidden');
-    return;
-  }
-  document.getElementById('pairSection').classList.remove('hidden');
+  if (!myPareja) { return; }
 
   const isAlumno1 = currentUser.id === myPareja.alumno1_id || currentUser.id === myPareja.alumno1.id;
   const partner = isAlumno1 ? myPareja.alumno2 : myPareja.alumno1;
   const myTurn = (isAlumno1 && myPareja.turno_elige === 1) || (!isAlumno1 && myPareja.turno_elige === 2);
   const dur = parseInt(cfg.duracion_clase_min || '45');
-  const activeStates = ['propuesta','aceptada','confirmada'];
+  const activeStates = ['propuesta','pendiente','aceptada','confirmada'];
 
   document.getElementById('pairPartnerName').textContent = 'Con ' + partner.nombre;
 
-  // Load ALL active pair reservations for this pair (not just current week)
+  // Load active pair reservations
   const {data:allPairRes} = await sb.from('ae_reservas_pareja').select('*')
     .eq('pareja_id', myPareja.id).in('estado', activeStates).order('fecha');
   const myPairRes = allPairRes || [];
 
+  // Show existing booking status
+  let statusHtml = '';
   if (myPairRes.length > 0) {
     const pr = myPairRes[0];
     const d = new Date(pr.fecha + 'T00:00:00');
     const di = d.getDay() - 1;
-    const first = pr.hora_slot1.slice(0,5) < pr.hora_slot2.slice(0,5) ? pr.hora_slot1 : pr.hora_slot2;
-    const second = first === pr.hora_slot1 ? pr.hora_slot2 : pr.hora_slot1;
+    const first = pr.hora_slot1.slice(0,5) < (pr.hora_slot2||pr.hora_slot1).slice(0,5) ? pr.hora_slot1 : (pr.hora_slot2||pr.hora_slot1);
+    const second = first === pr.hora_slot1 ? (pr.hora_slot2||pr.hora_slot1) : pr.hora_slot1;
     const endTime = addMins(second, dur);
     const iChose = pr.elegido_por === currentUser.id;
-
-    // CASE 1: Proposal waiting for partner to accept
-    if (pr.estado === 'propuesta' && !iChose) {
-      document.getElementById('pairContent').innerHTML = `
-        <div style="padding:14px;background:#f5f3ff;border-radius:10px;margin-bottom:12px">
-          <p style="font-size:0.9rem;font-weight:700;color:#7c3aed">${partner.nombre} propone esta clase:</p>
-          <p style="font-size:1.1rem;font-weight:800;margin-top:6px">${DAYS[di>=0?di:0]} ${d.getDate()} - ${first.slice(0,5)} a ${endTime}</p>
-          <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px">90 minutos en pareja</p>
-        </div>
-        <div style="display:flex;gap:10px">
-          <button class="btn btn-success" style="flex:1;padding:14px" onclick="pairRespond('${pr.id}','aceptar')">Aceptar</button>
-          <button class="btn btn-danger" style="flex:1;padding:14px" onclick="pairRespond('${pr.id}','rechazar')">Rechazar</button>
-        </div>`;
-      return;
-    }
-
     const cancelBtn = `<button class="cancel-x" onclick="cancelPairReserva('${pr.id}')" style="flex-shrink:0">&#10005;</button>`;
 
-    // CASE 2: I proposed, waiting for partner
-    if (pr.estado === 'propuesta' && iChose) {
-      document.getElementById('pairContent').innerHTML = `
-        <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#fffbeb,#fef3c7)">
-          <div class="my-booking-left">
-            <div class="my-booking-day" style="background:var(--warning)">
-              <span class="mbd-day">${DAYS_SHORT[di>=0?di:0]}</span>
-              <span class="mbd-num">${d.getDate()}</span>
+    if (pr.estado === 'propuesta' && !iChose) {
+      statusHtml = `
+        <div class="section-card" style="border:2px solid #c4b5fd;margin-bottom:12px">
+          <div class="section-body">
+            <div style="padding:14px;background:#f5f3ff;border-radius:10px;margin-bottom:12px">
+              <p style="font-size:0.9rem;font-weight:700;color:#7c3aed">${partner.nombre} propone esta clase:</p>
+              <p style="font-size:1.1rem;font-weight:800;margin-top:6px">${DAYS[di>=0?di:0]} ${d.getDate()} - ${first.slice(0,5)} a ${endTime}</p>
+              <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px">90 minutos en pareja</p>
             </div>
-            <div class="my-booking-info">
-              <div class="mbi-time">${first.slice(0,5)} - ${endTime} (90 min)</div>
-              <div class="mbi-detail">Esperando que ${partner.nombre} acepte</div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-success" style="flex:1;padding:14px" onclick="pairRespond('${pr.id}','aceptar')">Aceptar</button>
+              <button class="btn btn-danger" style="flex:1;padding:14px" onclick="pairRespond('${pr.id}','rechazar')">Rechazar</button>
             </div>
           </div>
-          ${cancelBtn}
         </div>`;
+      document.getElementById('pairStatus').innerHTML = statusHtml;
+      document.getElementById('pairWeekNav').classList.add('hidden');
+      document.getElementById('pairDayTabs').classList.add('hidden');
+      document.getElementById('pairContent').innerHTML = '';
       return;
     }
 
-    // CASE 3: Accepted, waiting for admin
-    if (pr.estado === 'aceptada') {
-      document.getElementById('pairContent').innerHTML = `
-        <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#eff6ff,#dbeafe)">
-          <div class="my-booking-left">
-            <div class="my-booking-day" style="background:var(--primary)">
-              <span class="mbd-day">${DAYS_SHORT[di>=0?di:0]}</span>
-              <span class="mbd-num">${d.getDate()}</span>
+    const colors = {propuesta:['#fffbeb','#fef3c7','var(--warning)'],aceptada:['#eff6ff','#dbeafe','var(--primary)'],confirmada:['#f5f3ff','#ede9fe','#7c3aed']};
+    const labels = {propuesta:'Esperando que '+partner.nombre+' acepte',aceptada:'Aceptada - Pendiente del profesor',confirmada:'Confirmada | Con '+partner.nombre};
+    const c = colors[pr.estado]||colors.propuesta;
+    statusHtml = `
+      <div class="section-card" style="border:2px solid ${c[2]};margin-bottom:12px;overflow:visible">
+        <div class="section-body">
+          <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,${c[0]},${c[1]})">
+            <div class="my-booking-left">
+              <div class="my-booking-day" style="background:${c[2]}">
+                <span class="mbd-day">${DAYS_SHORT[di>=0?di:0]}</span>
+                <span class="mbd-num">${d.getDate()}</span>
+              </div>
+              <div class="my-booking-info">
+                <div class="mbi-time">${first.slice(0,5)} - ${endTime} (90 min)</div>
+                <div class="mbi-detail">${labels[pr.estado]||pr.estado}</div>
+              </div>
             </div>
-            <div class="my-booking-info">
-              <div class="mbi-time">${first.slice(0,5)} - ${endTime} (90 min)</div>
-              <div class="mbi-detail">Aceptada - Pendiente de confirmacion del profesor</div>
-            </div>
+            ${cancelBtn}
           </div>
-          ${cancelBtn}
-        </div>`;
-      return;
-    }
-
-    // CASE 4: Confirmed by admin
-    if (pr.estado === 'confirmada') {
-      document.getElementById('pairContent').innerHTML = `
-        <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)">
-          <div class="my-booking-left">
-            <div class="my-booking-day" style="background:#7c3aed">
-              <span class="mbd-day">${DAYS_SHORT[di>=0?di:0]}</span>
-              <span class="mbd-num">${d.getDate()}</span>
-            </div>
-            <div class="my-booking-info">
-              <div class="mbi-time">${first.slice(0,5)} - ${endTime} (90 min)</div>
-              <div class="mbi-detail">Confirmada | Con ${partner.nombre}</div>
-            </div>
-          </div>
-          ${cancelBtn}
-        </div>`;
-      return;
-    }
-  }
-
-  // CASE 5: No booking - my turn to pick (two-step: pick slot, then before/after)
-  if (myTurn) {
-    const date = dates[selectedDay];
-    const dateStr = fmtDate(date);
-    const now = new Date();
-    const isToday = dateStr === fmtDate(now);
-    const isPastDay = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    if (isPastDay || blockedDays.includes(dateStr)) {
-      document.getElementById('pairContent').innerHTML = `
-        <div class="empty-state" style="padding:20px">
-          <div class="empty-text" style="color:var(--text-muted)">Selecciona un dia disponible</div>
-        </div>`;
-      return;
-    }
-
-    const daySlots = slots.filter(s => s.dia_semana === selectedDay);
-    const dayRes = weekReservas.filter(r => r.fecha === dateStr);
-    const occupiedSet = new Set(dayRes.map(r => r.hora_inicio.slice(0,5)));
-
-    // Find slots that have at least one free adjacent slot
-    const validSlots = [];
-    daySlots.forEach((slot, i) => {
-      const t = slot.hora_inicio.slice(0,5);
-      const key = dateStr + '_' + t;
-      const slotPast = isToday && slot.hora_inicio < now.toTimeString().slice(0,5);
-      if (occupiedSet.has(t) || blockedSlotSet.has(key) || pairSlotSet.has(key) || slotPast) return;
-
-      const adjacent = [];
-      if (i > 0) {
-        const bt = daySlots[i-1].hora_inicio.slice(0,5);
-        const bPast = isToday && daySlots[i-1].hora_inicio < now.toTimeString().slice(0,5);
-        if (!occupiedSet.has(bt) && !blockedSlotSet.has(dateStr+'_'+bt) && !pairSlotSet.has(dateStr+'_'+bt) && !bPast)
-          adjacent.push(bt);
-      }
-      if (i < daySlots.length - 1) {
-        const at = daySlots[i+1].hora_inicio.slice(0,5);
-        if (!occupiedSet.has(at) && !blockedSlotSet.has(dateStr+'_'+at) && !pairSlotSet.has(dateStr+'_'+at))
-          adjacent.push(at);
-      }
-      if (adjacent.length > 0) validSlots.push({ time: t, adjacent, end: addMins(t, dur) });
-    });
-
-    if (!validSlots.length) {
-      document.getElementById('pairContent').innerHTML = `
-        <div class="empty-state" style="padding:20px">
-          <div class="empty-text">No hay horas con hueco adyacente libre este dia</div>
-        </div>`;
-      return;
-    }
-
-    // Check if user already selected step 1
-    if (pairStep1Selection && pairStep1Selection.fecha === dateStr) {
-      const sel = pairStep1Selection;
-      const adjSlots = validSlots.find(s => s.time === sel.time);
-      if (!adjSlots) { pairStep1Selection = null; }
-      else {
-        document.getElementById('pairContent').innerHTML = `
-          <div style="padding:12px;background:#f5f3ff;border-radius:10px;margin-bottom:12px">
-            <p style="font-size:0.85rem;font-weight:600;color:#7c3aed">Tu clase: ${sel.time} - ${sel.end}</p>
-            <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px">Ahora elige la segunda clase (antes o despues):</p>
-            <a href="#" onclick="pairStep1Selection=null;renderWeek();return false" style="font-size:0.75rem;color:var(--text-muted)">Cambiar mi hora</a>
-          </div>
-          ${adjSlots.adjacent.map(adj => {
-            const isBefore = adj < sel.time;
-            const adjEnd = addMins(adj, dur);
-            const first = isBefore ? adj : sel.time;
-            const last = isBefore ? sel.time : adj;
-            const totalEnd = addMins(last, dur);
-            return `
-              <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="confirmPairBook('${dateStr}','${first}','${last}','${first}','${totalEnd}','${DAYS[selectedDay]}')">
-                <div class="slot-left">
-                  <div class="slot-time-badge"><div class="time">${adj}</div><div class="end-time">${adjEnd}</div></div>
-                  <div class="slot-separator" style="background:#8b5cf6"></div>
-                  <div class="slot-info">
-                    <div class="slot-status-text" style="color:#7c3aed">${isBefore ? 'Antes' : 'Despues'} de tu clase</div>
-                    <div class="slot-detail">Total: ${first} - ${totalEnd} (90 min)</div>
-                  </div>
-                </div>
-                <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
-              </div>`;
-          }).join('')}`;
-        return;
-      }
-    }
-
-    // Step 1: Pick your slot
-    document.getElementById('pairContent').innerHTML = `
-      <p style="font-size:0.8rem;color:var(--text-secondary);padding:8px 4px"><strong>Paso 1:</strong> Elige tu hora de clase (${partner.nombre} debera aceptar)</p>
-      ${validSlots.map(vs => `
-        <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="selectPairStep1('${dateStr}','${vs.time}','${vs.end}')">
-          <div class="slot-left">
-            <div class="slot-time-badge"><div class="time">${vs.time}</div><div class="end-time">${vs.end}</div></div>
-            <div class="slot-separator" style="background:#8b5cf6"></div>
-            <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">Disponible</div><div class="slot-detail">${dur} min</div></div>
-          </div>
-          <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
         </div>
-      `).join('')}`;
+      </div>`;
+  }
+  document.getElementById('pairStatus').innerHTML = statusHtml;
+
+  // If there's already an active booking and it's not my turn, hide calendar
+  if (myPairRes.length > 0 && !myTurn) {
+    document.getElementById('pairWeekNav').classList.add('hidden');
+    document.getElementById('pairDayTabs').classList.add('hidden');
+    document.getElementById('pairContent').innerHTML = '';
     return;
   }
 
-  // CASE 6: Not my turn, no booking yet
+  // Show calendar for picking
+  document.getElementById('pairWeekNav').classList.remove('hidden');
+  document.getElementById('pairDayTabs').classList.remove('hidden');
+
+  // Use pair's own week offset
+  const pairDates = getWeekDates(pairWeekOff);
+  const pws = fmtDate(pairDates[0]), pwe = fmtDate(pairDates[4]);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = fmtDate(today);
+
+  const sameMo = pairDates[0].getMonth() === pairDates[4].getMonth();
+  document.getElementById('pairWeekLabel').textContent = sameMo
+    ? `${pairDates[0].getDate()} - ${pairDates[4].getDate()} ${MONTHS[pairDates[0].getMonth()]}`
+    : `${pairDates[0].getDate()} ${MONTHS_SHORT[pairDates[0].getMonth()]} - ${pairDates[4].getDate()} ${MONTHS_SHORT[pairDates[4].getMonth()]}`;
+  document.getElementById('pairWeekSub').textContent = myTurn ? 'Tu turno de elegir' : 'Turno de ' + partner.nombre;
+
+  // Load reservas for pair week
+  const [{data:pRes},{data:pBlocked},{data:pSlotBlocks}] = await Promise.all([
+    sb.from('ae_reservas').select('fecha,hora_inicio').gte('fecha',pws).lte('fecha',pwe).in('estado',['pendiente','confirmada']),
+    sb.from('ae_dias_bloqueados').select('fecha').gte('fecha',pws).lte('fecha',pwe),
+    sb.from('ae_slots_bloqueados').select('fecha,hora_inicio').gte('fecha',pws).lte('fecha',pwe)
+  ]);
+  const pBlockedDays = (pBlocked||[]).map(b=>b.fecha);
+  const pBlockedSlots = new Set((pSlotBlocks||[]).map(b=>b.fecha+'_'+b.hora_inicio.slice(0,5)));
+  const pOccupied = new Set((pRes||[]).map(r=>r.fecha+'_'+r.hora_inicio.slice(0,5)));
+
+  // Day tabs
+  document.getElementById('pairDayTabs').innerHTML = pairDates.map((dt, i) => {
+    const isPast = dt < today;
+    const isToday = fmtDate(dt) === todayStr;
+    const isBlocked = pBlockedDays.includes(fmtDate(dt));
+    return `
+      <div class="day-tab ${i===pairSelectedDay?'active':''} ${isToday?'today':''}"
+           onclick="${isPast||isBlocked?'':'pairSelectDay('+i+')'}"
+           style="${isPast||isBlocked?'opacity:0.3;pointer-events:none':'';i===pairSelectedDay?'background:#7c3aed;border-color:#7c3aed':''}">
+        <div class="dt-name">${DAYS_SHORT[i]}</div>
+        <div class="dt-number">${dt.getDate()}</div>
+        <div class="dt-info">${isPast?'Pasado':isBlocked?'Cerrado':''}</div>
+      </div>`;
+  }).join('');
+
+  // Slots for selected day
+  const pDate = pairDates[pairSelectedDay];
+  const pDateStr = fmtDate(pDate);
+  const now = new Date();
+  const pIsToday = pDateStr === fmtDate(now);
+  const daySlots = slots.filter(s => s.dia_semana === pairSelectedDay);
+
+  document.getElementById('pairSlotsTitle').textContent = `${DAYS[pairSelectedDay]} ${pDate.getDate()} ${MONTHS_SHORT[pDate.getMonth()]}`;
+
+  if (!myTurn) {
+    document.getElementById('pairContent').innerHTML = `
+      <div class="empty-state" style="padding:20px">
+        <div class="empty-icon">&#9203;</div>
+        <div class="empty-text">Es el turno de <strong>${partner.nombre}</strong></div>
+      </div>`;
+    return;
+  }
+
+  // Find valid slots with adjacent free slot
+  const validSlots = [];
+  daySlots.forEach((slot, i) => {
+    const t = slot.hora_inicio.slice(0,5);
+    const key = pDateStr + '_' + t;
+    const slotPast = pIsToday && slot.hora_inicio < now.toTimeString().slice(0,5);
+    if (pOccupied.has(key) || pBlockedSlots.has(key) || slotPast) return;
+
+    const adjacent = [];
+    if (i > 0) {
+      const bt = daySlots[i-1].hora_inicio.slice(0,5);
+      const bk = pDateStr+'_'+bt;
+      const bPast = pIsToday && daySlots[i-1].hora_inicio < now.toTimeString().slice(0,5);
+      if (!pOccupied.has(bk) && !pBlockedSlots.has(bk) && !bPast) adjacent.push(bt);
+    }
+    if (i < daySlots.length - 1) {
+      const at = daySlots[i+1].hora_inicio.slice(0,5);
+      const ak = pDateStr+'_'+at;
+      if (!pOccupied.has(ak) && !pBlockedSlots.has(ak)) adjacent.push(at);
+    }
+    if (adjacent.length > 0) validSlots.push({ time: t, adjacent, end: addMins(t, dur) });
+  });
+
+  if (!validSlots.length) {
+    document.getElementById('pairContent').innerHTML = `
+      <div class="empty-state" style="padding:20px">
+        <div class="empty-text">No hay horas con hueco adyacente libre</div>
+      </div>`;
+    return;
+  }
+
+  // Step 2: user already picked their slot
+  if (pairStep1Selection && pairStep1Selection.fecha === pDateStr) {
+    const sel = pairStep1Selection;
+    const adjSlots = validSlots.find(s => s.time === sel.time);
+    if (!adjSlots) { pairStep1Selection = null; }
+    else {
+      document.getElementById('pairContent').innerHTML = `
+        <div style="padding:12px;background:#f5f3ff;border-radius:10px;margin-bottom:12px">
+          <p style="font-size:0.85rem;font-weight:600;color:#7c3aed">Tu clase: ${sel.time} - ${sel.end}</p>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px"><strong>Paso 2:</strong> Elige la segunda clase:</p>
+          <a href="#" onclick="pairStep1Selection=null;renderPairSection([],[],new Set());return false" style="font-size:0.75rem;color:var(--text-muted)">Cambiar</a>
+        </div>
+        ${adjSlots.adjacent.map(adj => {
+          const isBefore = adj < sel.time;
+          const adjEnd = addMins(adj, dur);
+          const first = isBefore ? adj : sel.time;
+          const last = isBefore ? sel.time : adj;
+          const totalEnd = addMins(last, dur);
+          return `
+            <div class="slot-item" style="border:2px solid #c4b5fd;background:#faf5ff;cursor:pointer" onclick="confirmPairBook('${pDateStr}','${first}','${last}','${first}','${totalEnd}','${DAYS[pairSelectedDay]}')">
+              <div class="slot-left">
+                <div class="slot-time-badge"><div class="time">${adj}</div><div class="end-time">${adjEnd}</div></div>
+                <div class="slot-separator" style="background:#8b5cf6"></div>
+                <div class="slot-info">
+                  <div class="slot-status-text" style="color:#7c3aed">${isBefore ? 'Antes' : 'Despues'} de tu clase</div>
+                  <div class="slot-detail">Total: ${first} - ${totalEnd} (90 min)</div>
+                </div>
+              </div>
+              <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
+            </div>`;
+        }).join('')}`;
+      return;
+    }
+  }
+
+  // Step 1: Pick your slot
   document.getElementById('pairContent').innerHTML = `
-    <div class="empty-state" style="padding:20px">
-      <div class="empty-icon">&#9203;</div>
-      <div class="empty-text">Es el turno de <strong>${partner.nombre}</strong> para proponer la hora</div>
-      <div class="empty-text" style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)">Cuando lo haga, podras aceptar o rechazar</div>
-    </div>`;
+    <p style="font-size:0.8rem;color:var(--text-secondary);padding:8px 4px"><strong>Paso 1:</strong> Elige tu hora (${partner.nombre} debera aceptar)</p>
+    ${validSlots.map(vs => `
+      <div class="slot-item" style="border:2px solid #c4b5fd;background:#faf5ff;cursor:pointer" onclick="selectPairStep1('${pDateStr}','${vs.time}','${vs.end}')">
+        <div class="slot-left">
+          <div class="slot-time-badge"><div class="time">${vs.time}</div><div class="end-time">${vs.end}</div></div>
+          <div class="slot-separator" style="background:#8b5cf6"></div>
+          <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">Disponible</div><div class="slot-detail">${dur} min</div></div>
+        </div>
+        <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
+      </div>
+    `).join('')}`;
 }
 
 function selectPairStep1(fecha, time, end) {
