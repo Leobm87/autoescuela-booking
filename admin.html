@@ -266,6 +266,7 @@
       <button class="tab" data-tab="alumnos" onclick="switchTab('alumnos')">&#128101; Alumnos</button>
       <button class="tab" data-tab="horarios" onclick="switchTab('horarios')">&#9200; Horarios</button>
       <button class="tab" data-tab="avisos" onclick="switchTab('avisos')">&#128227; Avisos</button>
+      <button class="tab" data-tab="parejas" onclick="switchTab('parejas')">&#128101; Parejas</button>
       <button class="tab" data-tab="bloqueos" onclick="switchTab('bloqueos')">&#128683; Bloqueos</button>
       <button class="tab" data-tab="config" onclick="switchTab('config')">&#9881; Config</button>
     </div>
@@ -362,6 +363,34 @@
       <div class="card">
         <div class="card-header"><h3>Avisos activos</h3></div>
         <div class="card-body" id="avisosList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: PAREJAS -->
+    <div id="tab-parejas" class="hidden">
+      <div class="card">
+        <div class="card-header"><h3>Crear pareja</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-field">
+              <label>Alumno 1</label>
+              <select id="pareja1"></select>
+            </div>
+            <div class="form-field">
+              <label>Alumno 2</label>
+              <select id="pareja2"></select>
+            </div>
+            <div class="form-field" style="flex:0"><label>&nbsp;</label><button class="btn btn-success" onclick="createPareja()">Crear pareja</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Parejas activas</h3></div>
+        <div class="card-body" id="parejasList"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Reservas de parejas</h3></div>
+        <div class="card-body" id="parejasReservasList"></div>
       </div>
     </div>
 
@@ -514,11 +543,12 @@ async function loadStats() {
 
 // TABS
 function switchTab(name) {
-  const tabs = ['pendientes','agenda','alumnos','horarios','avisos','bloqueos','config'];
+  const tabs = ['pendientes','agenda','alumnos','horarios','parejas','avisos','bloqueos','config'];
   tabs.forEach(t => document.getElementById('tab-'+t).classList.toggle('hidden', t!==name));
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
   if (name === 'pendientes') loadPendientes();
   if (name === 'bloqueos') loadCalendar();
+  if (name === 'parejas') loadParejas();
 }
 
 // STUDENTS
@@ -722,6 +752,110 @@ async function deleteAviso(id) {
   if(!confirm('Eliminar aviso?')) return;
   await sb.from('ae_avisos').delete().eq('id',id);
   toast('Aviso eliminado','success'); loadAvisos();
+}
+
+// PAREJAS
+async function loadParejas() {
+  // Fill selects
+  const opts = allStudents.filter(s=>s.activo).map(s=>`<option value="${s.id}">${esc(s.nombre)}</option>`).join('');
+  document.getElementById('pareja1').innerHTML = opts;
+  document.getElementById('pareja2').innerHTML = opts;
+
+  // Load parejas
+  const {data} = await sb.from('ae_parejas').select('*,alumno1:ae_alumnos!alumno1_id(id,nombre),alumno2:ae_alumnos!alumno2_id(id,nombre)').order('created_at',{ascending:false});
+  const parejas = data || [];
+
+  if (!parejas.length) {
+    document.getElementById('parejasList').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">No hay parejas creadas</p>';
+  } else {
+    document.getElementById('parejasList').innerHTML = parejas.map(p => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:2px solid ${p.activo?'#93c5fd':'var(--border)'};background:${p.activo?'#eff6ff':'#f8fafc'};border-radius:12px;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:0.95rem">${esc(p.alumno1.nombre)} + ${esc(p.alumno2.nombre)}</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:2px">
+            Turno de elegir: <strong>${p.turno_elige===1?esc(p.alumno1.nombre):esc(p.alumno2.nombre)}</strong>
+            ${!p.activo?' - <span style="color:var(--danger)">Inactiva</span>':''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm btn-outline" onclick="flipTurno(${p.id},${p.turno_elige===1?2:1})" title="Cambiar turno">&#128260;</button>
+          <button class="btn btn-sm ${p.activo?'btn-warning':'btn-success'}" onclick="togglePareja(${p.id},${!p.activo})">${p.activo?'Desactivar':'Activar'}</button>
+          <button class="btn btn-sm btn-danger" onclick="deletePareja(${p.id})">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Load pair reservations
+  const {data:pRes} = await sb.from('ae_reservas_pareja').select('*,ae_parejas(alumno1:ae_alumnos!alumno1_id(nombre),alumno2:ae_alumnos!alumno2_id(nombre)),elegido:ae_alumnos!elegido_por(nombre)')
+    .in('estado',['pendiente','confirmada']).order('fecha').order('hora_slot1');
+  const pResList = pRes || [];
+
+  if (!pResList.length) {
+    document.getElementById('parejasReservasList').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">No hay reservas de parejas</p>';
+  } else {
+    document.getElementById('parejasReservasList').innerHTML = pResList.map(r => {
+      const d = new Date(r.fecha+'T00:00:00');
+      const di = d.getDay()-1;
+      const isPend = r.estado === 'pendiente';
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px solid ${isPend?'#fde68a':'#a7f3d0'};background:${isPend?'#fffbeb':'#ecfdf5'};border-radius:10px;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700;font-size:0.85rem">${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} - ${r.hora_slot1.slice(0,5)} a ${r.hora_slot2.slice(0,5)}</div>
+            <div style="font-size:0.8rem;color:var(--text-secondary)">${esc(r.ae_parejas.alumno1.nombre)} + ${esc(r.ae_parejas.alumno2.nombre)} | Eligio: ${esc(r.elegido.nombre)} | ${isPend?'Pendiente':'Confirmada'}</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            ${isPend?'<button class="btn btn-sm btn-success" onclick="approvePairBooking(\''+r.id+'\')">Aprobar</button>':''}
+            <button class="btn btn-sm btn-danger" onclick="cancelPairBooking('${r.id}')">Cancelar</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+}
+
+async function createPareja() {
+  const a1 = document.getElementById('pareja1').value;
+  const a2 = document.getElementById('pareja2').value;
+  if (a1 === a2) return toast('Selecciona dos alumnos diferentes','error');
+  const {error} = await sb.from('ae_parejas').insert({alumno1_id:a1, alumno2_id:a2});
+  if (error) {
+    if (error.message.includes('unique')||error.message.includes('duplicate')) return toast('Esa pareja ya existe','error');
+    return toast('Error: '+error.message,'error');
+  }
+  toast('Pareja creada','success');
+  loadParejas();
+}
+
+async function flipTurno(id, newTurno) {
+  await sb.from('ae_parejas').update({turno_elige:newTurno}).eq('id',id);
+  toast('Turno cambiado','success');
+  loadParejas();
+}
+
+async function togglePareja(id, val) {
+  await sb.from('ae_parejas').update({activo:val}).eq('id',id);
+  toast(val?'Pareja activada':'Pareja desactivada','success');
+  loadParejas();
+}
+
+async function deletePareja(id) {
+  if (!confirm('Eliminar esta pareja?')) return;
+  await sb.from('ae_parejas').delete().eq('id',id);
+  toast('Pareja eliminada','success');
+  loadParejas();
+}
+
+async function approvePairBooking(id) {
+  await sb.from('ae_reservas_pareja').update({estado:'confirmada'}).eq('id',id);
+  toast('Reserva de pareja aprobada','success');
+  loadParejas(); loadAgenda(); loadStats();
+}
+
+async function cancelPairBooking(id) {
+  if (!confirm('Cancelar esta reserva de pareja?')) return;
+  await sb.from('ae_reservas_pareja').update({estado:'cancelada'}).eq('id',id);
+  toast('Reserva cancelada','success');
+  loadParejas(); loadAgenda(); loadStats();
 }
 
 // CALENDAR

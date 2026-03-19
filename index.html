@@ -1036,6 +1036,17 @@
       </div>
       <div class="section-body" id="myBookingsList"></div>
     </div>
+
+    <!-- Pair booking section -->
+    <div id="pairSection" class="hidden">
+      <div class="section-card" style="border:2px solid #a78bfa">
+        <div class="section-header" style="background:#f5f3ff">
+          <h3 style="color:#7c3aed">&#128101; Clase en pareja</h3>
+          <span id="pairPartnerName" style="font-size:0.8rem;color:#7c3aed;font-weight:600"></span>
+        </div>
+        <div class="section-body" id="pairContent"></div>
+      </div>
+    </div>
   </div>
 
   <!-- VIEW: Profile -->
@@ -1119,9 +1130,11 @@ let weekOffset = 0;
 let selectedDay = 0;
 let slots = [];
 let weekReservas = [];
+let weekPairReservas = [];
 let blockedDays = [];
 let cfg = {};
 let pendingFn = null;
+let myPareja = null; // active pair the user is in
 
 // =============================================
 // INIT
@@ -1226,11 +1239,18 @@ document.getElementById('regPin').addEventListener('keypress', e => { if(e.key==
 // =============================================
 // APP
 // =============================================
-function showApp() {
+async function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appScreen').classList.remove('hidden');
   document.getElementById('appBrandName').textContent = cfg.nombre_autoescuela || 'Mi Autoescuela';
   document.getElementById('appUserName').textContent = currentUser.nombre;
+
+  // Load pair info
+  const {data:parejas} = await sb.from('ae_parejas')
+    .select('*,alumno1:ae_alumnos!alumno1_id(id,nombre),alumno2:ae_alumnos!alumno2_id(id,nombre)')
+    .eq('activo', true)
+    .or(`alumno1_id.eq.${currentUser.id},alumno2_id.eq.${currentUser.id}`);
+  myPareja = (parejas && parejas.length > 0) ? parejas[0] : null;
 
   weekOffset = 0;
   const dow = new Date().getDay();
@@ -1315,11 +1335,12 @@ async function renderWeek() {
     weekOffset === 0 ? 'Semana actual' : (weekOffset === 1 ? 'Proxima semana' : `En ${weekOffset} semanas`);
 
   // Fetch data
-  const [resReservas, resBlocked, resAvisos, resSlotBlocks] = await Promise.all([
+  const [resReservas, resBlocked, resAvisos, resSlotBlocks, resPairRes] = await Promise.all([
     sb.from('ae_reservas').select('*, ae_alumnos(nombre)').gte('fecha', ws).lte('fecha', we).in('estado', ['pendiente','confirmada']),
     sb.from('ae_dias_bloqueados').select('*').gte('fecha', ws).lte('fecha', we),
     sb.from('ae_avisos').select('*').eq('activo', true).order('created_at', {ascending: false}).limit(3),
-    sb.from('ae_slots_bloqueados').select('fecha,hora_inicio').gte('fecha', ws).lte('fecha', we)
+    sb.from('ae_slots_bloqueados').select('fecha,hora_inicio').gte('fecha', ws).lte('fecha', we),
+    sb.from('ae_reservas_pareja').select('*').gte('fecha', ws).lte('fecha', we).in('estado', ['pendiente','confirmada'])
   ]);
 
   weekReservas = resReservas.data || [];
@@ -1327,6 +1348,13 @@ async function renderWeek() {
   const blockedMap = {};
   (resBlocked.data || []).forEach(b => blockedMap[b.fecha] = b.motivo);
   const blockedSlotSet = new Set((resSlotBlocks.data || []).map(b => b.fecha + '_' + b.hora_inicio.slice(0,5)));
+  weekPairReservas = resPairRes.data || [];
+  // Build set of slots occupied by pair bookings
+  const pairSlotSet = new Set();
+  weekPairReservas.forEach(pr => {
+    pairSlotSet.add(pr.fecha + '_' + pr.hora_slot1.slice(0,5));
+    pairSlotSet.add(pr.fecha + '_' + pr.hora_slot2.slice(0,5));
+  });
 
   // Avisos
   const avisos = resAvisos.data || [];
@@ -1388,10 +1416,11 @@ async function renderWeek() {
   } else {
     document.getElementById('slotsContainer').classList.remove('hidden');
     document.getElementById('blockedDayMsg').classList.add('hidden');
-    renderSlots(dates, blockedSlotSet);
+    renderSlots(dates, blockedSlotSet, pairSlotSet);
   }
 
   renderMyBookings(dates);
+  renderPairSection(dates, blockedSlotSet, pairSlotSet);
 }
 
 function selectDay(i) {
@@ -1402,7 +1431,7 @@ function selectDay(i) {
 // =============================================
 // RENDER SLOTS
 // =============================================
-function renderSlots(dates, blockedSlotSet = new Set()) {
+function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set()) {
   const date = dates[selectedDay];
   const dateStr = fmtDate(date);
   const now = new Date();
@@ -1439,6 +1468,36 @@ function renderSlots(dates, blockedSlotSet = new Set()) {
     const isMine = reserva && reserva.alumno_id === currentUser.id;
     const slotPast = isPast || (isToday && timeStr < now.toTimeString().slice(0,5));
     const isSlotBlocked = blockedSlotSet.has(dateStr + '_' + timeShort);
+    const isPairSlot = pairSlotSet.has(dateStr + '_' + timeShort);
+    // Check if this pair slot is mine
+    const myPairRes = isPairSlot ? weekPairReservas.find(pr =>
+      pr.fecha === dateStr && (pr.hora_slot1.slice(0,5) === timeShort || pr.hora_slot2.slice(0,5) === timeShort) &&
+      myPareja && pr.pareja_id === myPareja.id
+    ) : null;
+
+    if (isPairSlot && !myPairRes) {
+      return `
+        <div class="slot-item booked">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+            <div class="slot-separator"></div>
+            <div class="slot-info"><div class="slot-status-text">Clase en pareja</div><div class="slot-detail">Reservado</div></div>
+          </div>
+          <span class="slot-booked-badge">Ocupado</span>
+        </div>`;
+    }
+
+    if (myPairRes) {
+      return `
+        <div class="slot-item mine fade-in" style="border-color:#a78bfa;background:#f5f3ff">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+            <div class="slot-separator" style="background:#8b5cf6"></div>
+            <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">Clase en pareja</div><div class="slot-detail">${myPairRes.estado === 'pendiente' ? 'Pendiente' : 'Confirmada'}</div></div>
+          </div>
+          <span style="background:#7c3aed;color:white;padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:700">Pareja</span>
+        </div>`;
+    }
 
     if (isSlotBlocked && !isMine) {
       return `
@@ -1631,6 +1690,161 @@ async function cancelBooking(id) {
 }
 
 // =============================================
+// =============================================
+// PAIR BOOKING
+// =============================================
+function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
+  if (!myPareja) {
+    document.getElementById('pairSection').classList.add('hidden');
+    return;
+  }
+  document.getElementById('pairSection').classList.remove('hidden');
+
+  const isAlumno1 = currentUser.id === myPareja.alumno1_id || currentUser.id === myPareja.alumno1.id;
+  const partner = isAlumno1 ? myPareja.alumno2 : myPareja.alumno1;
+  const myTurn = (isAlumno1 && myPareja.turno_elige === 1) || (!isAlumno1 && myPareja.turno_elige === 2);
+
+  document.getElementById('pairPartnerName').textContent = 'Con ' + partner.nombre;
+
+  // Check existing pair reservation this week
+  const myPairRes = weekPairReservas.filter(pr => pr.pareja_id === myPareja.id);
+
+  if (myPairRes.length > 0) {
+    // Show existing pair booking
+    const dur = parseInt(cfg.duracion_clase_min || '45');
+    const html = myPairRes.map(pr => {
+      const d = new Date(pr.fecha + 'T00:00:00');
+      const di = d.getDay() - 1;
+      const endTime = addMins(pr.hora_slot2, dur);
+      return `
+        <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)">
+          <div class="my-booking-left">
+            <div class="my-booking-day" style="background:#7c3aed">
+              <span class="mbd-day">${DAYS_SHORT[di >= 0 ? di : 0]}</span>
+              <span class="mbd-num">${d.getDate()}</span>
+            </div>
+            <div class="my-booking-info">
+              <div class="mbi-time">${pr.hora_slot1.slice(0,5)} - ${endTime} (90 min)</div>
+              <div class="mbi-detail">${pr.estado === 'pendiente' ? 'Pendiente de confirmacion' : 'Confirmada'} | Con ${partner.nombre}</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('pairContent').innerHTML = html;
+    return;
+  }
+
+  // No pair booking yet this week
+  if (!myTurn) {
+    document.getElementById('pairContent').innerHTML = `
+      <div class="empty-state" style="padding:20px">
+        <div class="empty-icon">&#9203;</div>
+        <div class="empty-text">Es el turno de <strong>${partner.nombre}</strong> para elegir la hora</div>
+        <div class="empty-text" style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)">Cuando reserve, tu clase aparecera automaticamente</div>
+      </div>`;
+    return;
+  }
+
+  // It's my turn - show available double slots
+  const date = dates[selectedDay];
+  const dateStr = fmtDate(date);
+  const now = new Date();
+  const isToday = dateStr === fmtDate(now);
+  const isPastDay = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dur = parseInt(cfg.duracion_clase_min || '45');
+
+  if (isPastDay || blockedDays.includes(dateStr)) {
+    document.getElementById('pairContent').innerHTML = `
+      <div class="empty-state" style="padding:20px">
+        <div class="empty-text" style="color:var(--text-muted)">Selecciona un dia disponible para reservar</div>
+      </div>`;
+    return;
+  }
+
+  const daySlots = slots.filter(s => s.dia_semana === selectedDay);
+  const dayRes = weekReservas.filter(r => r.fecha === dateStr);
+  const occupiedSet = new Set(dayRes.map(r => r.hora_inicio.slice(0,5)));
+
+  // Find consecutive free pairs
+  const doubleSlots = [];
+  for (let i = 0; i < daySlots.length - 1; i++) {
+    const s1 = daySlots[i].hora_inicio.slice(0,5);
+    const s2 = daySlots[i+1].hora_inicio.slice(0,5);
+    const key1 = dateStr + '_' + s1;
+    const key2 = dateStr + '_' + s2;
+    const s1Past = isToday && daySlots[i].hora_inicio < now.toTimeString().slice(0,5);
+    const s1Free = !occupiedSet.has(s1) && !blockedSlotSet.has(key1) && !pairSlotSet.has(key1) && !s1Past;
+    const s2Free = !occupiedSet.has(s2) && !blockedSlotSet.has(key2) && !pairSlotSet.has(key2);
+
+    if (s1Free && s2Free) {
+      doubleSlots.push({ slot1: s1, slot2: s2, end: addMins(s2, dur) });
+    }
+  }
+
+  if (!doubleSlots.length) {
+    document.getElementById('pairContent').innerHTML = `
+      <div class="empty-state" style="padding:20px">
+        <div class="empty-text">No hay 2 horas consecutivas libres este dia</div>
+        <div class="empty-text" style="font-size:0.75rem;color:var(--text-muted)">Prueba otro dia</div>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('pairContent').innerHTML = `
+    <p style="font-size:0.8rem;color:var(--text-secondary);padding:8px 4px">Es tu turno de elegir. Selecciona un bloque de 90 min:</p>
+    ${doubleSlots.map(ds => `
+      <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="confirmPairBook('${dateStr}','${ds.slot1}','${ds.slot2}','${ds.slot1}','${ds.end}','${DAYS[selectedDay]}')">
+        <div class="slot-left">
+          <div class="slot-time-badge"><div class="time">${ds.slot1}</div><div class="end-time">${ds.end}</div></div>
+          <div class="slot-separator" style="background:#8b5cf6"></div>
+          <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">90 min en pareja</div><div class="slot-detail">Con ${partner.nombre}</div></div>
+        </div>
+        <button class="slot-action-btn" style="background:#7c3aed">Reservar</button>
+      </div>
+    `).join('')}`;
+}
+
+function confirmPairBook(fecha, slot1, slot2, horaDisp, endDisp, dia) {
+  pendingFn = () => bookPairSlot(fecha, slot1, slot2);
+  document.getElementById('modalIcon').className = 'modal-icon confirm';
+  document.getElementById('modalIcon').innerHTML = '&#128101;';
+  document.getElementById('modalTitle').textContent = 'Reservar clase en pareja';
+  document.getElementById('modalMsg').innerHTML = `Reservar <strong>${dia}</strong> de <strong>${horaDisp}</strong> a <strong>${endDisp}</strong>?<br><small>90 min en pareja</small>`;
+  document.getElementById('modalConfirmBtn').className = 'btn btn-success';
+  document.getElementById('modalConfirmBtn').textContent = 'Reservar';
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+async function bookPairSlot(fecha, slot1, slot2) {
+  try {
+    const { error } = await sb.from('ae_reservas_pareja').insert({
+      pareja_id: myPareja.id,
+      fecha,
+      hora_slot1: slot1,
+      hora_slot2: slot2,
+      elegido_por: currentUser.id,
+      estado: 'pendiente'
+    });
+
+    if (error) {
+      toast('Error: ' + (error.message || 'No se pudo reservar'), 'error');
+      await renderWeek();
+      return;
+    }
+
+    // Flip turn
+    const isAlumno1 = currentUser.id === myPareja.alumno1_id || currentUser.id === myPareja.alumno1.id;
+    const newTurn = isAlumno1 ? 2 : 1;
+    await sb.from('ae_parejas').update({ turno_elige: newTurn }).eq('id', myPareja.id);
+    myPareja.turno_elige = newTurn;
+
+    toast('Clase en pareja reservada - pendiente de confirmacion', 'success');
+    await renderWeek();
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
 // PROFILE
 // =============================================
 async function renderProfile() {
