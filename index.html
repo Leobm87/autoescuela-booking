@@ -1391,7 +1391,7 @@ function renderSlots(dates) {
     const timeStr = slot.hora_inicio;
     const timeShort = timeStr.slice(0,5);
     const endTime = addMins(timeStr, dur);
-    const reserva = dayRes.find(r => r.hora_inicio === timeStr + ':00');
+    const reserva = dayRes.find(r => r.hora_inicio.slice(0,5) === timeStr.slice(0,5));
     const isMine = reserva && reserva.alumno_id === currentUser.id;
     const slotPast = isPast || (isToday && timeStr < now.toTimeString().slice(0,5));
 

@@ -623,7 +623,7 @@ async function loadAgenda() {
         </div>
         <div class="agenda-bar"><div class="agenda-bar-fill" style="width:${pct}%;background:${pct>80?'var(--danger)':pct>50?'var(--warning)':'var(--primary-light)'}"></div></div>
         ${daySlots.map(slot => {
-          const r = dayRes.find(x=>x.hora_inicio===slot.hora_inicio+':00');
+          const r = dayRes.find(x=>x.hora_inicio.slice(0,5)===slot.hora_inicio.slice(0,5));
           const end = addMins(slot.hora_inicio,dur);
           return r ? `
             <div class="agenda-row">
