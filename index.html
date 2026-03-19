@@ -1135,6 +1135,7 @@ let blockedDays = [];
 let cfg = {};
 let pendingFn = null;
 let myPareja = null; // active pair the user is in
+let pairStep1Selection = null; // {fecha, time, end} for two-step pair selection
 
 // =============================================
 // INIT
@@ -1735,6 +1736,8 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
       return;
     }
 
+    const cancelBtn = `<button class="cancel-x" onclick="cancelPairReserva('${pr.id}')" style="flex-shrink:0">&#10005;</button>`;
+
     // CASE 2: I proposed, waiting for partner
     if (pr.estado === 'propuesta' && iChose) {
       document.getElementById('pairContent').innerHTML = `
@@ -1749,6 +1752,7 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
               <div class="mbi-detail">Esperando que ${partner.nombre} acepte</div>
             </div>
           </div>
+          ${cancelBtn}
         </div>`;
       return;
     }
@@ -1767,6 +1771,7 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
               <div class="mbi-detail">Aceptada - Pendiente de confirmacion del profesor</div>
             </div>
           </div>
+          ${cancelBtn}
         </div>`;
       return;
     }
@@ -1785,12 +1790,13 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
               <div class="mbi-detail">Confirmada | Con ${partner.nombre}</div>
             </div>
           </div>
+          ${cancelBtn}
         </div>`;
       return;
     }
   }
 
-  // CASE 5: No booking - my turn to pick 90 min block
+  // CASE 5: No booking - my turn to pick (two-step: pick slot, then before/after)
   if (myTurn) {
     const date = dates[selectedDay];
     const dateStr = fmtDate(date);
@@ -1810,36 +1816,83 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
     const dayRes = weekReservas.filter(r => r.fecha === dateStr);
     const occupiedSet = new Set(dayRes.map(r => r.hora_inicio.slice(0,5)));
 
-    // Find consecutive free pairs
-    const doubleSlots = [];
-    for (let i = 0; i < daySlots.length - 1; i++) {
-      const s1 = daySlots[i].hora_inicio.slice(0,5);
-      const s2 = daySlots[i+1].hora_inicio.slice(0,5);
-      const k1 = dateStr+'_'+s1, k2 = dateStr+'_'+s2;
-      const s1Past = isToday && daySlots[i].hora_inicio < now.toTimeString().slice(0,5);
-      if (!occupiedSet.has(s1) && !occupiedSet.has(s2) && !blockedSlotSet.has(k1) && !blockedSlotSet.has(k2) && !pairSlotSet.has(k1) && !pairSlotSet.has(k2) && !s1Past) {
-        doubleSlots.push({ s1, s2, end: addMins(s2, dur) });
-      }
-    }
+    // Find slots that have at least one free adjacent slot
+    const validSlots = [];
+    daySlots.forEach((slot, i) => {
+      const t = slot.hora_inicio.slice(0,5);
+      const key = dateStr + '_' + t;
+      const slotPast = isToday && slot.hora_inicio < now.toTimeString().slice(0,5);
+      if (occupiedSet.has(t) || blockedSlotSet.has(key) || pairSlotSet.has(key) || slotPast) return;
 
-    if (!doubleSlots.length) {
+      const adjacent = [];
+      if (i > 0) {
+        const bt = daySlots[i-1].hora_inicio.slice(0,5);
+        const bPast = isToday && daySlots[i-1].hora_inicio < now.toTimeString().slice(0,5);
+        if (!occupiedSet.has(bt) && !blockedSlotSet.has(dateStr+'_'+bt) && !pairSlotSet.has(dateStr+'_'+bt) && !bPast)
+          adjacent.push(bt);
+      }
+      if (i < daySlots.length - 1) {
+        const at = daySlots[i+1].hora_inicio.slice(0,5);
+        if (!occupiedSet.has(at) && !blockedSlotSet.has(dateStr+'_'+at) && !pairSlotSet.has(dateStr+'_'+at))
+          adjacent.push(at);
+      }
+      if (adjacent.length > 0) validSlots.push({ time: t, adjacent, end: addMins(t, dur) });
+    });
+
+    if (!validSlots.length) {
       document.getElementById('pairContent').innerHTML = `
         <div class="empty-state" style="padding:20px">
-          <div class="empty-text">No hay 2 horas seguidas libres este dia</div>
+          <div class="empty-text">No hay horas con hueco adyacente libre este dia</div>
         </div>`;
       return;
     }
 
-    document.getElementById('pairContent').innerHTML = `
-      <p style="font-size:0.8rem;color:var(--text-secondary);padding:8px 4px">Es tu turno. Elige un bloque de 90 min (${partner.nombre} debera aceptarlo):</p>
-      ${doubleSlots.map(ds => `
-        <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="confirmPairBook('${dateStr}','${ds.s1}','${ds.s2}','${ds.s1}','${ds.end}','${DAYS[selectedDay]}')">
-          <div class="slot-left">
-            <div class="slot-time-badge"><div class="time">${ds.s1}</div><div class="end-time">${ds.end}</div></div>
-            <div class="slot-separator" style="background:#8b5cf6"></div>
-            <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">90 min en pareja</div><div class="slot-detail">${partner.nombre} debe aceptar</div></div>
+    // Check if user already selected step 1
+    if (pairStep1Selection && pairStep1Selection.fecha === dateStr) {
+      const sel = pairStep1Selection;
+      const adjSlots = validSlots.find(s => s.time === sel.time);
+      if (!adjSlots) { pairStep1Selection = null; }
+      else {
+        document.getElementById('pairContent').innerHTML = `
+          <div style="padding:12px;background:#f5f3ff;border-radius:10px;margin-bottom:12px">
+            <p style="font-size:0.85rem;font-weight:600;color:#7c3aed">Tu clase: ${sel.time} - ${sel.end}</p>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px">Ahora elige la segunda clase (antes o despues):</p>
+            <a href="#" onclick="pairStep1Selection=null;renderWeek();return false" style="font-size:0.75rem;color:var(--text-muted)">Cambiar mi hora</a>
           </div>
-          <button class="slot-action-btn" style="background:#7c3aed">Proponer</button>
+          ${adjSlots.adjacent.map(adj => {
+            const isBefore = adj < sel.time;
+            const adjEnd = addMins(adj, dur);
+            const first = isBefore ? adj : sel.time;
+            const last = isBefore ? sel.time : adj;
+            const totalEnd = addMins(last, dur);
+            return `
+              <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="confirmPairBook('${dateStr}','${first}','${last}','${first}','${totalEnd}','${DAYS[selectedDay]}')">
+                <div class="slot-left">
+                  <div class="slot-time-badge"><div class="time">${adj}</div><div class="end-time">${adjEnd}</div></div>
+                  <div class="slot-separator" style="background:#8b5cf6"></div>
+                  <div class="slot-info">
+                    <div class="slot-status-text" style="color:#7c3aed">${isBefore ? 'Antes' : 'Despues'} de tu clase</div>
+                    <div class="slot-detail">Total: ${first} - ${totalEnd} (90 min)</div>
+                  </div>
+                </div>
+                <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
+              </div>`;
+          }).join('')}`;
+        return;
+      }
+    }
+
+    // Step 1: Pick your slot
+    document.getElementById('pairContent').innerHTML = `
+      <p style="font-size:0.8rem;color:var(--text-secondary);padding:8px 4px"><strong>Paso 1:</strong> Elige tu hora de clase (${partner.nombre} debera aceptar)</p>
+      ${validSlots.map(vs => `
+        <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="selectPairStep1('${dateStr}','${vs.time}','${vs.end}')">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${vs.time}</div><div class="end-time">${vs.end}</div></div>
+            <div class="slot-separator" style="background:#8b5cf6"></div>
+            <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">Disponible</div><div class="slot-detail">${dur} min</div></div>
+          </div>
+          <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
         </div>
       `).join('')}`;
     return;
@@ -1854,8 +1907,14 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
     </div>`;
 }
 
+function selectPairStep1(fecha, time, end) {
+  pairStep1Selection = { fecha, time, end };
+  renderWeek();
+}
+
 // Chooser proposes 90 min block
 function confirmPairBook(fecha, slot1, slot2, horaDisp, endDisp, dia) {
+  pairStep1Selection = null;
   pendingFn = () => bookPairProposal(fecha, slot1, slot2);
   document.getElementById('modalIcon').className = 'modal-icon confirm';
   document.getElementById('modalIcon').innerHTML = '&#128101;';
@@ -1879,6 +1938,21 @@ async function bookPairProposal(fecha, slot1, slot2) {
 }
 
 // Partner accepts or rejects
+async function cancelPairReserva(id) {
+  pendingFn = async () => {
+    await sb.from('ae_reservas_pareja').update({ estado: 'cancelada' }).eq('id', id);
+    toast('Reserva de pareja cancelada', 'success');
+    await renderWeek();
+  };
+  document.getElementById('modalIcon').className = 'modal-icon cancel';
+  document.getElementById('modalIcon').innerHTML = '&#10060;';
+  document.getElementById('modalTitle').textContent = 'Cancelar clase en pareja';
+  document.getElementById('modalMsg').innerHTML = 'Se cancelara la clase para ambos. Seguro?';
+  document.getElementById('modalConfirmBtn').className = 'btn btn-danger';
+  document.getElementById('modalConfirmBtn').textContent = 'Si, cancelar';
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
 async function pairRespond(reservaId, action) {
   if (action === 'aceptar') {
     await sb.from('ae_reservas_pareja').update({ estado: 'aceptada' }).eq('id', reservaId);
