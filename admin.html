@@ -740,6 +740,22 @@ function getWeekDates(off) {
 function fmt(d){return d.toISOString().split('T')[0];}
 function addMins(t,m){const[h,min]=t.split(':').map(Number);const tot=h*60+min+m;return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+// Auto-refresh: actualiza agenda y stats cada 10 segundos
+setInterval(()=>{
+  if(!document.getElementById('adminPanel').classList.contains('hidden')){
+    loadAgenda(); loadStats();
+  }
+}, 10000);
+
+// Supabase realtime: escuchar cambios en reservas
+sb.channel('admin-reservas')
+  .on('postgres_changes', {event:'*', schema:'public', table:'ae_reservas'}, ()=>{
+    if(!document.getElementById('adminPanel').classList.contains('hidden')){
+      loadAgenda(); loadStats(); loadStudents();
+    }
+  })
+  .subscribe();
 function toast(msg,type=''){
   const c=document.getElementById('toastContainer');
   const t=document.createElement('div');
