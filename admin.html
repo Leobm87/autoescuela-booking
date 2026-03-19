@@ -1048,31 +1048,61 @@ function fmt(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(
 function addMins(t,m){const[h,min]=t.split(':').map(Number);const tot=h*60+min+m;return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;}
 // PENDIENTES
 async function loadPendientes() {
-  const {data} = await sb.from('ae_reservas').select('*,ae_alumnos(nombre,telefono)')
+  const dur = parseInt(cfg.duracion_clase_min||'45');
+
+  // Individual pending
+  const {data:indiv} = await sb.from('ae_reservas').select('*,ae_alumnos(nombre,telefono)')
     .eq('estado','pendiente').order('created_at',{ascending:true});
-  const list = data || [];
-  if (!list.length) {
-    document.getElementById('pendientesList').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px">No hay reservas pendientes</p>';
-    return;
-  }
-  document.getElementById('pendientesList').innerHTML = list.map(r => {
+
+  // Pair pending (aceptada = partner accepted, waiting for admin)
+  const {data:pairs} = await sb.from('ae_reservas_pareja')
+    .select('*,ae_parejas(alumno1:ae_alumnos!alumno1_id(nombre),alumno2:ae_alumnos!alumno2_id(nombre)),elegido:ae_alumnos!elegido_por(nombre)')
+    .eq('estado','aceptada').order('created_at',{ascending:true});
+
+  const indivList = (indiv||[]).map(r => {
     const d = new Date(r.fecha+'T00:00:00');
     const di = d.getDay()-1;
-    const dur = parseInt(cfg.duracion_clase_min||'45');
     const end = addMins(r.hora_inicio, dur);
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border:2px solid #fde68a;background:#fffbeb;border-radius:12px;margin-bottom:10px">
         <div style="flex:1">
+          <span class="badge badge-blue" style="margin-bottom:6px;display:inline-block">Individual</span>
           <div style="font-weight:700;font-size:0.95rem">${esc(r.ae_alumnos.nombre)}</div>
           <div style="font-size:0.8rem;color:var(--text-secondary)">${r.ae_alumnos.telefono}</div>
-          <div style="font-size:0.85rem;margin-top:4px"><strong>${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</strong> - ${r.hora_inicio.slice(0,5)} a ${end}</div>
+          <div style="font-size:0.85rem;margin-top:4px"><strong>${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</strong> - ${r.hora_inicio.slice(0,5)} a ${end} (${dur} min)</div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-sm btn-success" onclick="approveBooking('${r.id}')">Aprobar</button>
           <button class="btn btn-sm btn-danger" onclick="rejectBooking('${r.id}')">Rechazar</button>
         </div>
       </div>`;
-  }).join('');
+  });
+
+  const pairList = (pairs||[]).map(r => {
+    const d = new Date(r.fecha+'T00:00:00');
+    const di = d.getDay()-1;
+    const first = r.hora_slot1.slice(0,5) < r.hora_slot2.slice(0,5) ? r.hora_slot1 : r.hora_slot2;
+    const second = first === r.hora_slot1 ? r.hora_slot2 : r.hora_slot1;
+    const endTime = addMins(second, dur);
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border:2px solid #c4b5fd;background:#f5f3ff;border-radius:12px;margin-bottom:10px">
+        <div style="flex:1">
+          <span class="badge" style="background:#ede9fe;color:#7c3aed;margin-bottom:6px;display:inline-block">En pareja</span>
+          <div style="font-weight:700;font-size:0.95rem">${esc(r.ae_parejas.alumno1.nombre)} + ${esc(r.ae_parejas.alumno2.nombre)}</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary)">Propuso: ${esc(r.elegido.nombre)}</div>
+          <div style="font-size:0.85rem;margin-top:4px"><strong>${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</strong> - ${first.slice(0,5)} a ${endTime} (90 min)</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-success" onclick="approvePairBooking('${r.id}')">Aprobar</button>
+          <button class="btn btn-sm btn-danger" onclick="cancelPairBooking('${r.id}')">Rechazar</button>
+        </div>
+      </div>`;
+  });
+
+  const all = [...indivList, ...pairList];
+  document.getElementById('pendientesList').innerHTML = all.length
+    ? all.join('')
+    : '<p style="text-align:center;color:var(--text-muted);padding:30px">No hay reservas pendientes</p>';
 }
 
 async function approveBooking(id) {
