@@ -976,75 +976,104 @@
     <!-- Avisos -->
     <div id="avisosContainer" style="margin-top:8px"></div>
 
-    <!-- Stats -->
+    <!-- Stats (clickable) -->
     <div class="stats-row" style="margin-top:8px">
-      <div class="stat-card">
+      <div class="stat-card" style="cursor:pointer" onclick="switchBookingTab('reservas')">
         <div class="stat-number" id="statBooked">0</div>
         <div class="stat-label">Reservadas</div>
       </div>
-      <div class="stat-card success">
+      <div class="stat-card success" style="cursor:pointer" onclick="switchBookingTab('individual')">
         <div class="stat-number" id="statRemaining">2</div>
         <div class="stat-label">Disponibles</div>
       </div>
-      <div class="stat-card warning">
+      <div class="stat-card warning" style="cursor:pointer" onclick="switchView('profile')">
         <div class="stat-number" id="statTotal">0</div>
         <div class="stat-label">Historial</div>
       </div>
     </div>
 
-    <!-- Week nav -->
-    <div class="week-nav">
-      <button class="week-nav-btn" id="prevWeek" onclick="changeWeek(-1)">&#9664;</button>
-      <div style="text-align:center">
-        <div class="week-nav-label" id="weekLabel"></div>
-        <div class="week-nav-sub" id="weekSub"></div>
+    <!-- Booking sub-tabs -->
+    <div class="day-tabs" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px" id="bookingTabs">
+      <div class="day-tab" id="tabPareja" onclick="switchBookingTab('pareja')" style="padding:12px 8px">
+        <div class="dt-name" style="font-size:0.7rem">&#128101;</div>
+        <div style="font-size:0.75rem;font-weight:700">En pareja</div>
       </div>
-      <button class="week-nav-btn" id="nextWeek" onclick="changeWeek(1)">&#9654;</button>
+      <div class="day-tab active" id="tabIndividual" onclick="switchBookingTab('individual')" style="padding:12px 8px">
+        <div class="dt-name" style="font-size:0.7rem">&#128100;</div>
+        <div style="font-size:0.75rem;font-weight:700">Individual</div>
+      </div>
+      <div class="day-tab" id="tabReservas" onclick="switchBookingTab('reservas')" style="padding:12px 8px">
+        <div class="dt-name" style="font-size:0.7rem">&#128197;</div>
+        <div style="font-size:0.75rem;font-weight:700">Mis reservas</div>
+      </div>
     </div>
 
-    <!-- Day tabs -->
-    <div class="day-tabs" id="dayTabs"></div>
-
-    <!-- Blocked day message -->
-    <div id="blockedDayMsg" class="hidden">
-      <div class="section-card">
-        <div class="empty-state" style="padding:40px">
-          <div class="empty-icon">&#128683;</div>
-          <div class="empty-text" style="font-weight:600;color:var(--danger)">Dia bloqueado</div>
-          <div class="empty-text" id="blockedReason" style="margin-top:4px"></div>
+    <!-- TAB CONTENT: Pareja -->
+    <div id="bookingTabPareja" class="hidden">
+      <div id="pairSection">
+        <div class="section-card" style="border:2px solid #a78bfa">
+          <div class="section-header" style="background:#f5f3ff">
+            <h3 style="color:#7c3aed">&#128101; Clase en pareja</h3>
+            <span id="pairPartnerName" style="font-size:0.8rem;color:#7c3aed;font-weight:600"></span>
+          </div>
+          <div class="section-body" id="pairContent"></div>
         </div>
       </div>
     </div>
 
-    <!-- Slots -->
-    <div id="slotsContainer">
+    <!-- TAB CONTENT: Individual -->
+    <div id="bookingTabIndividual">
+      <!-- Week nav -->
+      <div class="week-nav">
+        <button class="week-nav-btn" id="prevWeek" onclick="changeWeek(-1)">&#9664;</button>
+        <div style="text-align:center">
+          <div class="week-nav-label" id="weekLabel"></div>
+          <div class="week-nav-sub" id="weekSub"></div>
+        </div>
+        <button class="week-nav-btn" id="nextWeek" onclick="changeWeek(1)">&#9654;</button>
+      </div>
+
+      <!-- Day tabs -->
+      <div class="day-tabs" id="dayTabs"></div>
+
+      <!-- Blocked day message -->
+      <div id="blockedDayMsg" class="hidden">
+        <div class="section-card">
+          <div class="empty-state" style="padding:40px">
+            <div class="empty-icon">&#128683;</div>
+            <div class="empty-text" style="font-weight:600;color:var(--danger)">Dia bloqueado</div>
+            <div class="empty-text" id="blockedReason" style="margin-top:4px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slots -->
+      <div id="slotsContainer">
+        <div class="section-card">
+          <div class="section-header">
+            <h3 id="slotsTitle">Horarios</h3>
+            <span id="slotsCount" style="font-size:0.8rem;color:var(--text-muted)"></span>
+          </div>
+          <div class="section-body" id="slotsList">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CONTENT: Mis reservas -->
+    <div id="bookingTabReservas" class="hidden">
       <div class="section-card">
         <div class="section-header">
-          <h3 id="slotsTitle">Horarios</h3>
-          <span id="slotsCount" style="font-size:0.8rem;color:var(--text-muted)"></span>
+          <h3>&#128197; Mis reservas esta semana</h3>
         </div>
-        <div class="section-body" id="slotsList">
-          <div class="spinner"></div>
-        </div>
+        <div class="section-body" id="myBookingsList"></div>
       </div>
-    </div>
-
-    <!-- My bookings this week -->
-    <div class="section-card">
-      <div class="section-header">
-        <h3>&#128197; Mis reservas</h3>
-      </div>
-      <div class="section-body" id="myBookingsList"></div>
-    </div>
-
-    <!-- Pair booking section -->
-    <div id="pairSection" class="hidden">
-      <div class="section-card" style="border:2px solid #a78bfa">
+      <div class="section-card" id="myPairBookingsCard" class="hidden">
         <div class="section-header" style="background:#f5f3ff">
-          <h3 style="color:#7c3aed">&#128101; Clase en pareja</h3>
-          <span id="pairPartnerName" style="font-size:0.8rem;color:#7c3aed;font-weight:600"></span>
+          <h3 style="color:#7c3aed">&#128101; Reservas en pareja</h3>
         </div>
-        <div class="section-body" id="pairContent"></div>
+        <div class="section-body" id="myPairBookingsList"></div>
       </div>
     </div>
   </div>
@@ -1324,6 +1353,18 @@ async function refreshAll() {
   }
 }
 
+let currentBookingTab = 'individual';
+
+function switchBookingTab(tab) {
+  currentBookingTab = tab;
+  document.getElementById('bookingTabPareja').classList.toggle('hidden', tab !== 'pareja');
+  document.getElementById('bookingTabIndividual').classList.toggle('hidden', tab !== 'individual');
+  document.getElementById('bookingTabReservas').classList.toggle('hidden', tab !== 'reservas');
+  document.getElementById('tabPareja').classList.toggle('active', tab === 'pareja');
+  document.getElementById('tabIndividual').classList.toggle('active', tab === 'individual');
+  document.getElementById('tabReservas').classList.toggle('active', tab === 'reservas');
+}
+
 function switchView(view) {
   document.getElementById('viewBooking').classList.toggle('hidden', view !== 'booking');
   document.getElementById('viewDisponible').classList.toggle('hidden', view !== 'disponible');
@@ -1487,6 +1528,25 @@ async function renderWeek() {
 
   renderMyBookings(dates);
   await renderPairSection(dates, blockedSlotSet, pairSlotSet);
+
+  // Configure tabs based on pair status
+  const parejaTab = document.getElementById('tabPareja');
+  if (myPareja) {
+    parejaTab.style.opacity = '1';
+    parejaTab.style.pointerEvents = 'auto';
+    // If first load, auto-select pareja tab
+    if (!window._tabInitDone) {
+      switchBookingTab('pareja');
+      window._tabInitDone = true;
+    }
+  } else {
+    parejaTab.style.opacity = '0.4';
+    parejaTab.style.pointerEvents = 'none';
+    if (currentBookingTab === 'pareja') switchBookingTab('individual');
+  }
+
+  // Render pair bookings in "Mis reservas" tab
+  renderMyPairBookings(dates);
 }
 
 function selectDay(i) {
@@ -1767,6 +1827,48 @@ async function cancelBooking(id) {
 // =============================================
 // =============================================
 // =============================================
+// MY PAIR BOOKINGS (for "Mis reservas" tab)
+function renderMyPairBookings(dates) {
+  const card = document.getElementById('myPairBookingsCard');
+  if (!myPareja) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+
+  const dur = parseInt(cfg.duracion_clase_min || '45');
+  const isAlumno1 = currentUser.id === myPareja.alumno1_id || currentUser.id === myPareja.alumno1.id;
+  const partner = isAlumno1 ? myPareja.alumno2 : myPareja.alumno1;
+  const activeStates = ['propuesta','aceptada','confirmada'];
+  const pairRes = weekPairReservas.filter(pr => pr.pareja_id === myPareja.id && activeStates.includes(pr.estado));
+
+  if (!pairRes.length) {
+    document.getElementById('myPairBookingsList').innerHTML = `
+      <div class="empty-state"><div class="empty-text">Sin reservas en pareja esta semana</div></div>`;
+    return;
+  }
+
+  const stateLabels = {propuesta:'Propuesta',aceptada:'Aceptada por ambos',confirmada:'Confirmada'};
+  document.getElementById('myPairBookingsList').innerHTML = pairRes.map(pr => {
+    const d = new Date(pr.fecha + 'T00:00:00');
+    const di = d.getDay() - 1;
+    const first = pr.hora_slot1.slice(0,5) < pr.hora_slot2.slice(0,5) ? pr.hora_slot1 : pr.hora_slot2;
+    const second = first === pr.hora_slot1 ? pr.hora_slot2 : pr.hora_slot1;
+    const endTime = addMins(second, dur);
+    return `
+      <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)">
+        <div class="my-booking-left">
+          <div class="my-booking-day" style="background:#7c3aed">
+            <span class="mbd-day">${DAYS_SHORT[di>=0?di:0]}</span>
+            <span class="mbd-num">${d.getDate()}</span>
+          </div>
+          <div class="my-booking-info">
+            <div class="mbi-time">${first.slice(0,5)} - ${endTime} (90 min)</div>
+            <div class="mbi-detail">${stateLabels[pr.estado]||pr.estado} | Con ${partner.nombre}</div>
+          </div>
+        </div>
+        <button class="cancel-x" onclick="cancelPairReserva('${pr.id}')">&#10005;</button>
+      </div>`;
+  }).join('');
+}
+
 // PAIR BOOKING (3-step: chooser picks 90min → partner accepts/rejects → admin confirms)
 // =============================================
 async function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
