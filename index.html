@@ -1291,6 +1291,10 @@ function changeWeek(dir) {
 // RENDER WEEK
 // =============================================
 async function renderWeek() {
+  // Refresh user data (in case admin changed sin_limite etc)
+  const { data: freshUser } = await sb.from('ae_alumnos').select('*').eq('id', currentUser.id).single();
+  if (freshUser) { currentUser = freshUser; localStorage.setItem('ae_user', JSON.stringify(freshUser)); }
+
   const dates = getWeekDates(weekOffset);
   const ws = fmtDate(dates[0]);
   const we = fmtDate(dates[4]);
