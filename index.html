@@ -1992,7 +1992,7 @@ async function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
     return `
       <div class="day-tab ${i===pairSelectedDay?'active':''} ${isToday?'today':''}"
            onclick="${isPast||isBlocked?'':'pairSelectDay('+i+')'}"
-           style="${isPast||isBlocked?'opacity:0.3;pointer-events:none':'';i===pairSelectedDay?'background:#7c3aed;border-color:#7c3aed':''}">
+           style="${isPast||isBlocked?'opacity:0.3;pointer-events:none':''}${i===pairSelectedDay?'background:#7c3aed;border-color:#7c3aed':''}">
         <div class="dt-name">${DAYS_SHORT[i]}</div>
         <div class="dt-number">${dt.getDate()}</div>
         <div class="dt-info">${isPast?'Pasado':isBlocked?'Cerrado':''}</div>
