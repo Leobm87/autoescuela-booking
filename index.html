@@ -1401,7 +1401,8 @@ async function renderWeek() {
   const myWeek = weekReservas.filter(r => r.alumno_id === currentUser.id);
   const maxW = parseInt(cfg.max_clases_alumno_semana || '2');
   document.getElementById('statBooked').textContent = myWeek.length;
-  document.getElementById('statRemaining').textContent = currentUser.sin_limite ? '\u221E' : Math.max(0, maxW - myWeek.length);
+  const myMax = currentUser.max_clases || maxW;
+  document.getElementById('statRemaining').textContent = currentUser.sin_limite ? '\u221E' : Math.max(0, myMax - myWeek.length);
 
   const { count } = await sb.from('ae_reservas').select('*', {count:'exact',head:true})
     .eq('alumno_id', currentUser.id).in('estado', ['pendiente','confirmada']);
@@ -1471,7 +1472,8 @@ function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set())
   const dayRes = weekReservas.filter(r => r.fecha === dateStr);
   const myWeek = weekReservas.filter(r => r.alumno_id === currentUser.id);
   const maxW = parseInt(cfg.max_clases_alumno_semana || '2');
-  const canBook = currentUser.sin_limite || myWeek.length < maxW;
+  const userMax = currentUser.max_clases || maxW;
+  const canBook = currentUser.sin_limite || myWeek.length < userMax;
   const dur = parseInt(cfg.duracion_clase_min || '45');
 
   document.getElementById('slotsTitle').textContent =

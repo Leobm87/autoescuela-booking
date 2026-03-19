@@ -597,12 +597,17 @@ async function renderStudents(list) {
 
   document.getElementById('studentsTable').innerHTML = list.map(s=>`
     <tr style="${s.activo?'':'opacity:0.5'}">
-      <td><strong>${esc(s.nombre)}</strong> ${s.sin_limite?'<span class="badge" style="background:#fef3c7;color:#92400e">Sin limite</span>':''}</td>
+      <td><strong>${esc(s.nombre)}</strong> ${s.sin_limite?'<span class="badge" style="background:#fef3c7;color:#92400e">Sin limite</span>':''} ${!s.sin_limite && s.max_clases?'<span class="badge" style="background:#fee2e2;color:#991b1b">Max '+s.max_clases+'</span>':''}</td>
       <td>${s.telefono}</td>
-      <td><span class="badge badge-blue">${cnt[s.id]||0}/${s.sin_limite?'&#8734;':(cfg.max_clases_alumno_semana||2)}</span></td>
+      <td><span class="badge badge-blue">${cnt[s.id]||0}/${s.sin_limite?'&#8734;':(s.max_clases||(cfg.max_clases_alumno_semana||2))}</span></td>
       <td>${s.activo?'<span class="badge badge-green">Activo</span>':'<span class="badge badge-red">Inactivo</span>'}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-sm ${s.sin_limite?'btn-outline':'btn-warning'}" onclick="toggleSinLimite('${s.id}',${!s.sin_limite})" title="${s.sin_limite?'Poner limite':'Quitar limite'}">${s.sin_limite?'Con limite':'Sin limite'}</button>
+        <select onchange="setMaxClases('${s.id}',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:0.75rem;font-family:inherit;cursor:pointer">
+          <option value="1" ${!s.sin_limite&&s.max_clases===1?'selected':''}>1 clase</option>
+          <option value="" ${!s.sin_limite&&!s.max_clases?'selected':''}>2 clases</option>
+          <option value="3" ${!s.sin_limite&&s.max_clases===3?'selected':''}>3 clases</option>
+          <option value="unlimited" ${s.sin_limite?'selected':''}>Sin limite</option>
+        </select>
         <button class="btn btn-sm ${s.activo?'btn-warning':'btn-success'}" onclick="toggleStudent('${s.id}',${!s.activo})">${s.activo?'Desactivar':'Activar'}</button>
         <button class="btn btn-sm btn-danger" onclick="deleteStudent('${s.id}','${esc(s.nombre)}')">Eliminar</button>
       </td>
@@ -1182,10 +1187,16 @@ async function rejectBooking(id) {
   loadPendientes(); loadAgenda(); loadStats();
 }
 
-// SIN LIMITE
-async function toggleSinLimite(id, val) {
-  await sb.from('ae_alumnos').update({sin_limite:val}).eq('id',id);
-  toast(val?'Alumno sin limite de clases':'Limite de clases restaurado','success');
+// LIMITES POR ALUMNO
+async function setMaxClases(id, val) {
+  if (val === 'unlimited') {
+    await sb.from('ae_alumnos').update({sin_limite:true, max_clases:null}).eq('id',id);
+    toast('Sin limite de clases','success');
+  } else {
+    const max = val ? parseInt(val) : null;
+    await sb.from('ae_alumnos').update({sin_limite:false, max_clases:max}).eq('id',id);
+    toast(max ? 'Limite: '+max+' clase'+(max>1?'s':'')+'/semana' : 'Limite por defecto ('+( cfg.max_clases_alumno_semana||2)+')','success');
+  }
   loadStudents();
 }
 
