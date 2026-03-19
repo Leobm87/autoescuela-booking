@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autoescuela - Reserva tu clase</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #f59e0b;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --text-light: #64748b;
+      --border: #e2e8f0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header h1 { font-size: 1.2rem; }
+    .header .user-info { font-size: 0.85rem; opacity: 0.9; }
+    .header button {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    /* LOGIN */
+    .login-container {
+      max-width: 400px;
+      margin: 60px auto;
+      padding: 20px;
+    }
+    .login-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 40px 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .login-card .icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
+    .login-card h2 {
+      margin-bottom: 8px;
+      font-size: 1.5rem;
+    }
+    .login-card p {
+      color: var(--text-light);
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+    }
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-light);
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    .btn-small {
+      width: auto;
+      padding: 8px 16px;
+      font-size: 0.8rem;
+    }
+
+    /* BOOKING VIEW */
+    .booking-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* Week navigation */
+    .week-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .week-nav button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .week-nav button:disabled {
+      background: var(--border);
+      color: var(--text-light);
+      cursor: not-allowed;
+    }
+    .week-nav .week-label {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      flex: 1;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .stat-card .number {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+
+    /* Day tabs */
+    .day-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .day-tab {
+      flex: 1;
+      min-width: 0;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .day-tab.active {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: white;
+    }
+    .day-tab .day-name {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .day-tab .day-number {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .day-tab .day-slots {
+      font-size: 0.65rem;
+      margin-top: 2px;
+      opacity: 0.7;
+    }
+    .day-tab.today { border-color: var(--warning); }
+    .day-tab.today.active { border-color: var(--primary); }
+
+    /* Slots grid */
+    .slots-section {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .slots-section h3 {
+      font-size: 0.9rem;
+      color: var(--text-light);
+      margin-bottom: 12px;
+    }
+    .slot-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+    .slot-item .time {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .slot-item .duration {
+      font-size: 0.75rem;
+      color: var(--text-light);
+    }
+    .slot-item .status {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+    }
+    .slot-item.available {
+      cursor: pointer;
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+    }
+    .slot-item.available:hover {
+      border-color: var(--success);
+      transform: translateY(-1px);
+    }
+    .slot-item.available .status {
+      background: var(--success);
+      color: white;
+    }
+    .slot-item.booked {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .slot-item.booked .status {
+      background: var(--danger);
+      color: white;
+      cursor: pointer;
+    }
+    .slot-item.mine {
+      background: #eff6ff;
+      border-color: #93c5fd;
+    }
+    .slot-item.mine .status {
+      background: var(--primary);
+      color: white;
+    }
+    .slot-item.mine .cancel-btn {
+      background: var(--danger);
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .slot-item.past {
+      opacity: 0.5;
+      background: #f1f5f9;
+    }
+    .slot-item.past .status {
+      background: var(--border);
+      color: var(--text-light);
+    }
+
+    .slot-booked-name {
+      font-size: 0.7rem;
+      color: var(--text-light);
+    }
+
+    /* Mis reservas */
+    .my-bookings {
+      margin-top: 16px;
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .my-bookings h3 {
+      font-size: 0.9rem;
+      color: var(--text-light);
+      margin-bottom: 12px;
+    }
+    .booking-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: #eff6ff;
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .booking-item .info {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .booking-item .sub {
+      font-size: 0.75rem;
+      color: var(--text-light);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--text);
+      color: white;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+      max-width: 90%;
+      text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--danger); }
+    .toast.success { background: var(--success); }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+    .modal h3 { margin-bottom: 8px; }
+    .modal p {
+      color: var(--text-light);
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+    .modal .modal-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    .modal .modal-buttons button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .modal .btn-cancel-modal {
+      background: var(--border);
+      color: var(--text);
+    }
+    .modal .btn-confirm {
+      background: var(--primary);
+      color: white;
+    }
+    .modal .btn-confirm.danger {
+      background: var(--danger);
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-light);
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+
+    /* Admin link */
+    .admin-link {
+      text-align: center;
+      margin-top: 20px;
+      padding-bottom: 30px;
+    }
+    .admin-link a {
+      color: var(--text-light);
+      font-size: 0.8rem;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="icon">&#128663;</div>
+        <h2>Autoescuela</h2>
+        <p>Reserva tus clases de conducir</p>
+        <div class="form-group">
+          <label>Telefono</label>
+          <input type="tel" id="loginPhone" placeholder="612 345 678" maxlength="15">
+        </div>
+        <div class="form-group">
+          <label>PIN</label>
+          <input type="password" id="loginPin" placeholder="****" maxlength="6" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary" onclick="login()">Entrar</button>
+      </div>
+      <div class="admin-link">
+        <a href="admin.html">Acceso administrador</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOKING SCREEN -->
+  <div id="bookingScreen" class="hidden">
+    <div class="header">
+      <div>
+        <h1>&#128663; Autoescuela</h1>
+        <div class="user-info" id="userName"></div>
+      </div>
+      <button onclick="logout()">Salir</button>
+    </div>
+
+    <div class="booking-container">
+      <!-- Stats -->
+      <div class="stats-bar" style="margin-top:16px">
+        <div class="stat-card">
+          <div class="number" id="statBooked">0</div>
+          <div class="label">Reservadas</div>
+        </div>
+        <div class="stat-card">
+          <div class="number" id="statRemaining">2</div>
+          <div class="label">Disponibles</div>
+        </div>
+        <div class="stat-card">
+          <div class="number" id="statTotal">0</div>
+          <div class="label">Total historial</div>
+        </div>
+      </div>
+
+      <!-- Week nav -->
+      <div class="week-nav">
+        <button id="prevWeek" onclick="changeWeek(-1)">&#9664;</button>
+        <span class="week-label" id="weekLabel">Semana actual</span>
+        <button id="nextWeek" onclick="changeWeek(1)">&#9654;</button>
+      </div>
+
+      <!-- Day tabs -->
+      <div class="day-tabs" id="dayTabs"></div>
+
+      <!-- Slots -->
+      <div class="slots-section">
+        <h3 id="slotsTitle">Horarios disponibles</h3>
+        <div id="slotsList">
+          <div class="loading">
+            <div class="spinner"></div>
+            Cargando horarios...
+          </div>
+        </div>
+      </div>
+
+      <!-- My bookings this week -->
+      <div class="my-bookings">
+        <h3>Mis reservas esta semana</h3>
+        <div id="myBookingsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM MODAL -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+      <h3 id="modalTitle">Confirmar reserva</h3>
+      <p id="modalMessage"></p>
+      <div class="modal-buttons">
+        <button class="btn-cancel-modal" onclick="closeModal()">Cancelar</button>
+        <button class="btn-confirm" id="modalConfirmBtn" onclick="modalConfirmAction()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ==========================================
+    // CONFIG
+    // ==========================================
+    const SUPABASE_URL = 'https://uwcldzuyvkoecnmcprle.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y2xkenV5dmtvZWNubWNwcmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NzE3NTQsImV4cCI6MjA4MjM0Nzc1NH0.XU8WPZgZlMht3f5G2Ui4_R230Trb6p3BLdwRJbp2Eyg';
+
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const DAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
+    const DAYS_SHORT = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'];
+
+    let currentUser = null;
+    let currentWeekOffset = 0;
+    let selectedDay = 0;
+    let slots = [];
+    let weekReservas = [];
+    let allConfig = {};
+    let pendingAction = null;
+
+    // ==========================================
+    // INIT
+    // ==========================================
+    async function init() {
+      // Load config
+      const { data } = await sb.from('ae_config').select('*');
+      if (data) data.forEach(r => allConfig[r.key] = r.value);
+
+      // Load slots
+      const { data: s } = await sb.from('ae_slots').select('*').eq('activo', true).order('hora_inicio');
+      if (s) slots = s;
+
+      // Check saved session
+      const saved = localStorage.getItem('ae_user');
+      if (saved) {
+        try {
+          currentUser = JSON.parse(saved);
+          // Verify user still exists
+          const { data: u } = await sb.from('ae_alumnos').select('*').eq('id', currentUser.id).eq('activo', true).single();
+          if (u) {
+            currentUser = u;
+            showBookingScreen();
+            return;
+          }
+        } catch(e) {}
+        localStorage.removeItem('ae_user');
+      }
+    }
+
+    init();
+
+    // ==========================================
+    // AUTH
+    // ==========================================
+    async function login() {
+      const phone = document.getElementById('loginPhone').value.replace(/\s/g, '');
+      const pin = document.getElementById('loginPin').value;
+
+      if (!phone || !pin) return showToast('Introduce telefono y PIN', 'error');
+
+      const { data, error } = await sb
+        .from('ae_alumnos')
+        .select('*')
+        .eq('telefono', phone)
+        .eq('pin', pin)
+        .eq('activo', true)
+        .single();
+
+      if (error || !data) return showToast('Telefono o PIN incorrecto', 'error');
+
+      currentUser = data;
+      localStorage.setItem('ae_user', JSON.stringify(data));
+      showBookingScreen();
+    }
+
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('ae_user');
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('bookingScreen').classList.add('hidden');
+      document.getElementById('loginPhone').value = '';
+      document.getElementById('loginPin').value = '';
+    }
+
+    // Enter key on login
+    document.getElementById('loginPin').addEventListener('keypress', e => {
+      if (e.key === 'Enter') login();
+    });
+    document.getElementById('loginPhone').addEventListener('keypress', e => {
+      if (e.key === 'Enter') document.getElementById('loginPin').focus();
+    });
+
+    // ==========================================
+    // BOOKING SCREEN
+    // ==========================================
+    function showBookingScreen() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('bookingScreen').classList.remove('hidden');
+      document.getElementById('userName').textContent = currentUser.nombre;
+
+      // Set to current week, find today's day
+      currentWeekOffset = 0;
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+      selectedDay = (dayOfWeek >= 1 && dayOfWeek <= 5) ? dayOfWeek - 1 : 0;
+
+      renderWeek();
+    }
+
+    // ==========================================
+    // WEEK HELPERS
+    // ==========================================
+    function getWeekDates(offset) {
+      const now = new Date();
+      const monday = new Date(now);
+      const day = now.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      monday.setDate(now.getDate() + diff + (offset * 7));
+      monday.setHours(0, 0, 0, 0);
+
+      const dates = [];
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        dates.push(d);
+      }
+      return dates;
+    }
+
+    function formatDate(d) {
+      return d.toISOString().split('T')[0];
+    }
+
+    function changeWeek(dir) {
+      currentWeekOffset += dir;
+      selectedDay = 0;
+      renderWeek();
+    }
+
+    // ==========================================
+    // RENDER
+    // ==========================================
+    async function renderWeek() {
+      const dates = getWeekDates(currentWeekOffset);
+      const weekStart = formatDate(dates[0]);
+      const weekEnd = formatDate(dates[4]);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Disable prev button if showing current or past week
+      const currentMonday = getWeekDates(0)[0];
+      document.getElementById('prevWeek').disabled = dates[0] <= currentMonday;
+      // Limit to 3 weeks ahead
+      document.getElementById('nextWeek').disabled = currentWeekOffset >= 3;
+
+      // Week label
+      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      document.getElementById('weekLabel').textContent =
+        `${dates[0].getDate()} ${monthNames[dates[0].getMonth()]} - ${dates[4].getDate()} ${monthNames[dates[4].getMonth()]}`;
+
+      // Load reservas for this week
+      const { data: reservas } = await sb
+        .from('ae_reservas')
+        .select('*, ae_alumnos(nombre)')
+        .gte('fecha', weekStart)
+        .lte('fecha', weekEnd)
+        .eq('estado', 'confirmada');
+      weekReservas = reservas || [];
+
+      // Count user's bookings this week
+      const myBookings = weekReservas.filter(r => r.alumno_id === currentUser.id);
+      const maxPerWeek = parseInt(allConfig.max_clases_alumno_semana || '2');
+      document.getElementById('statBooked').textContent = myBookings.length;
+      document.getElementById('statRemaining').textContent = Math.max(0, maxPerWeek - myBookings.length);
+
+      // Total historical
+      const { count } = await sb
+        .from('ae_reservas')
+        .select('*', { count: 'exact', head: true })
+        .eq('alumno_id', currentUser.id)
+        .eq('estado', 'confirmada');
+      document.getElementById('statTotal').textContent = count || 0;
+
+      // Render day tabs
+      const tabsHtml = dates.map((d, i) => {
+        const isToday = d.getTime() === today.getTime();
+        const dayReservas = weekReservas.filter(r => r.fecha === formatDate(d));
+        const daySlots = slots.filter(s => s.dia_semana === i);
+        const available = daySlots.length - dayReservas.length;
+        return `
+          <div class="day-tab ${i === selectedDay ? 'active' : ''} ${isToday ? 'today' : ''}"
+               onclick="selectDay(${i})">
+            <div class="day-name">${DAYS_SHORT[i]}</div>
+            <div class="day-number">${d.getDate()}</div>
+            <div class="day-slots">${available} libres</div>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('dayTabs').innerHTML = tabsHtml;
+
+      renderSlots(dates);
+      renderMyBookings(dates);
+    }
+
+    function selectDay(idx) {
+      selectedDay = idx;
+      const dates = getWeekDates(currentWeekOffset);
+
+      // Update tab styles
+      document.querySelectorAll('.day-tab').forEach((tab, i) => {
+        tab.classList.toggle('active', i === idx);
+      });
+
+      renderSlots(dates);
+    }
+
+    function renderSlots(dates) {
+      const date = dates[selectedDay];
+      const dateStr = formatDate(date);
+      const now = new Date();
+      const isToday = dateStr === formatDate(now);
+      const isPast = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const daySlots = slots.filter(s => s.dia_semana === selectedDay);
+      const dayReservas = weekReservas.filter(r => r.fecha === dateStr);
+      const myWeekBookings = weekReservas.filter(r => r.alumno_id === currentUser.id);
+      const maxPerWeek = parseInt(allConfig.max_clases_alumno_semana || '2');
+      const canBook = myWeekBookings.length < maxPerWeek;
+
+      document.getElementById('slotsTitle').textContent =
+        `${DAYS[selectedDay]} ${date.getDate()} - Horarios`;
+
+      if (daySlots.length === 0) {
+        document.getElementById('slotsList').innerHTML =
+          '<p style="text-align:center;color:var(--text-light);padding:20px">No hay horarios configurados para este dia</p>';
+        return;
+      }
+
+      const html = daySlots.map(slot => {
+        const reserva = dayReservas.find(r => r.hora_inicio === slot.hora_inicio + ':00');
+        const isMine = reserva && reserva.alumno_id === currentUser.id;
+        const isSlotPast = isPast || (isToday && slot.hora_inicio < now.toTimeString().slice(0, 5));
+
+        const endTime = addMinutes(slot.hora_inicio, parseInt(allConfig.duracion_clase_min || '45'));
+
+        if (isSlotPast && !reserva) {
+          return `
+            <div class="slot-item past">
+              <div>
+                <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
+                <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
+              </div>
+              <span class="status">Pasado</span>
+            </div>
+          `;
+        }
+
+        if (isMine) {
+          return `
+            <div class="slot-item mine">
+              <div>
+                <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
+                <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
+              </div>
+              <div style="display:flex;align-items:center">
+                <span class="status">Tu clase</span>
+                ${!isSlotPast ? `<button class="cancel-btn" onclick="confirmCancel('${reserva.id}', '${slot.hora_inicio.slice(0,5)}', '${DAYS[selectedDay]}')">Cancelar</button>` : ''}
+              </div>
+            </div>
+          `;
+        }
+
+        if (reserva) {
+          return `
+            <div class="slot-item booked">
+              <div>
+                <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
+                <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
+              </div>
+              <span class="status">Ocupado</span>
+            </div>
+          `;
+        }
+
+        // Available
+        return `
+          <div class="slot-item available" onclick="${canBook && !isSlotPast ? `confirmBook('${dateStr}', '${slot.hora_inicio}', '${slot.hora_inicio.slice(0,5)}', '${DAYS[selectedDay]}')` : ''}">
+            <div>
+              <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
+              <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
+            </div>
+            <span class="status">${canBook && !isSlotPast ? 'Reservar' : (isSlotPast ? 'Pasado' : 'Limite alcanzado')}</span>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('slotsList').innerHTML = html;
+    }
+
+    function renderMyBookings(dates) {
+      const myBookings = weekReservas
+        .filter(r => r.alumno_id === currentUser.id)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio));
+
+      if (myBookings.length === 0) {
+        document.getElementById('myBookingsList').innerHTML =
+          '<p style="text-align:center;color:var(--text-light);padding:12px;font-size:0.85rem">No tienes reservas esta semana</p>';
+        return;
+      }
+
+      const html = myBookings.map(b => {
+        const d = new Date(b.fecha + 'T00:00:00');
+        const dayIdx = d.getDay() - 1; // 0=Mon
+        const endTime = addMinutes(b.hora_inicio, parseInt(allConfig.duracion_clase_min || '45'));
+        return `
+          <div class="booking-item">
+            <div>
+              <div class="info">${DAYS[dayIdx >= 0 ? dayIdx : 0]} ${d.getDate()}</div>
+              <div class="sub">${b.hora_inicio.slice(0,5)} - ${endTime}</div>
+            </div>
+            <button class="btn btn-danger btn-small" onclick="confirmCancel('${b.id}', '${b.hora_inicio.slice(0,5)}', '${DAYS[dayIdx >= 0 ? dayIdx : 0]}')">Cancelar</button>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('myBookingsList').innerHTML = html;
+    }
+
+    // ==========================================
+    // BOOKING ACTIONS
+    // ==========================================
+    function confirmBook(fecha, hora, horaDisplay, dia) {
+      pendingAction = () => bookSlot(fecha, hora);
+      document.getElementById('modalTitle').textContent = 'Confirmar reserva';
+      document.getElementById('modalMessage').textContent =
+        `Reservar clase el ${dia} a las ${horaDisplay}?`;
+      document.getElementById('modalConfirmBtn').className = 'btn-confirm';
+      document.getElementById('modalConfirmBtn').textContent = 'Reservar';
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function confirmCancel(reservaId, hora, dia) {
+      pendingAction = () => cancelBooking(reservaId);
+      document.getElementById('modalTitle').textContent = 'Cancelar reserva';
+      document.getElementById('modalMessage').textContent =
+        `Cancelar tu clase del ${dia} a las ${hora}?`;
+      document.getElementById('modalConfirmBtn').className = 'btn-confirm danger';
+      document.getElementById('modalConfirmBtn').textContent = 'Si, cancelar';
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('confirmModal').classList.remove('active');
+      pendingAction = null;
+    }
+
+    async function modalConfirmAction() {
+      closeModal();
+      if (pendingAction) await pendingAction();
+    }
+
+    async function bookSlot(fecha, hora) {
+      const { error } = await sb.from('ae_reservas').insert({
+        alumno_id: currentUser.id,
+        fecha: fecha,
+        hora_inicio: hora,
+        estado: 'confirmada'
+      });
+
+      if (error) {
+        if (error.message.includes('ya tiene')) {
+          showToast('Ya tienes el maximo de clases esta semana', 'error');
+        } else if (error.message.includes('unique') || error.message.includes('duplicate')) {
+          showToast('Este horario acaba de ser reservado por otro alumno', 'error');
+        } else if (error.message.includes('limite')) {
+          showToast('Se alcanzo el limite de clases para este dia', 'error');
+        } else {
+          showToast('Error al reservar: ' + error.message, 'error');
+        }
+        renderWeek();
+        return;
+      }
+
+      showToast('Clase reservada!', 'success');
+      renderWeek();
+    }
+
+    async function cancelBooking(reservaId) {
+      const { error } = await sb.from('ae_reservas')
+        .update({ estado: 'cancelada' })
+        .eq('id', reservaId)
+        .eq('alumno_id', currentUser.id);
+
+      if (error) {
+        showToast('Error al cancelar', 'error');
+        return;
+      }
+
+      showToast('Reserva cancelada', 'success');
+      renderWeek();
+    }
+
+    // ==========================================
+    // UTILS
+    // ==========================================
+    function addMinutes(timeStr, mins) {
+      const [h, m] = timeStr.split(':').map(Number);
+      const total = h * 60 + m + mins;
+      const nh = Math.floor(total / 60) % 24;
+      const nm = total % 60;
+      return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+    }
+
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + type;
+      setTimeout(() => t.className = 'toast', 3000);
+    }
+  </script>
+</body>
+</html>

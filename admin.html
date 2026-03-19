@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autoescuela - Panel Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #f59e0b;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --text-light: #64748b;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .header {
+      background: #1e293b;
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 1.1rem; }
+    .header a {
+      color: rgba(255,255,255,0.7);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* LOGIN ADMIN */
+    .admin-login {
+      max-width: 360px;
+      margin: 60px auto;
+      background: var(--card);
+      border-radius: 16px;
+      padding: 40px 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .admin-login h2 { margin-bottom: 20px; }
+    .admin-login input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .admin-login input:focus { outline: none; border-color: var(--primary); }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin: 16px 0;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      border: none;
+      background: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-light);
+    }
+    .tab.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* CARDS */
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      margin-bottom: 16px;
+    }
+    .card h3 {
+      font-size: 1rem;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* TABLE */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--text-light);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* FORM */
+    .form-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .form-row input, .form-row select {
+      flex: 1;
+      min-width: 120px;
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .form-row input:focus, .form-row select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-small { padding: 6px 12px; font-size: 0.75rem; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-warning { background: var(--warning); color: white; }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+
+    /* AGENDA */
+    .agenda-day {
+      margin-bottom: 20px;
+    }
+    .agenda-day h4 {
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    .agenda-slot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .agenda-slot .time { font-weight: 700; min-width: 100px; }
+    .agenda-slot .student { flex: 1; }
+    .agenda-slot.free { color: var(--text-light); }
+    .agenda-slot.free .student { font-style: italic; }
+
+    /* Stats overview */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat-box {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .stat-box .num {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .stat-box .lbl {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-top: 4px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--text);
+      color: white;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--danger); }
+    .toast.success { background: var(--success); }
+
+    .hidden { display: none !important; }
+
+    .search-bar {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+    .search-bar:focus { outline: none; border-color: var(--primary); }
+
+    @media (max-width: 600px) {
+      table { font-size: 0.75rem; }
+      th, td { padding: 8px 6px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ADMIN LOGIN -->
+  <div id="adminLogin">
+    <div class="admin-login">
+      <h2>Panel Administrador</h2>
+      <p style="color:var(--text-light);margin-bottom:20px;font-size:0.9rem">Introduce el PIN de admin</p>
+      <input type="password" id="adminPinInput" placeholder="PIN" maxlength="10" inputmode="numeric">
+      <button class="btn btn-primary" style="width:100%;padding:14px" onclick="adminLogin()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div id="adminPanel" class="hidden">
+    <div class="header">
+      <h1>Panel Administrador</h1>
+      <a href="index.html">Volver a la web</a>
+    </div>
+
+    <div class="container">
+      <!-- Stats -->
+      <div class="stats-grid" style="margin-top:16px" id="statsGrid"></div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('agenda')">Agenda</button>
+        <button class="tab" onclick="switchTab('alumnos')">Alumnos</button>
+        <button class="tab" onclick="switchTab('horarios')">Horarios</button>
+        <button class="tab" onclick="switchTab('config')">Config</button>
+      </div>
+
+      <!-- AGENDA TAB -->
+      <div id="tab-agenda">
+        <div class="card">
+          <h3>
+            <span>Agenda semanal</span>
+            <div>
+              <button class="btn btn-small btn-primary" onclick="changeAdminWeek(-1)">&#9664;</button>
+              <span id="adminWeekLabel" style="margin:0 8px;font-size:0.85rem"></span>
+              <button class="btn btn-small btn-primary" onclick="changeAdminWeek(1)">&#9654;</button>
+            </div>
+          </h3>
+          <div id="agendaContent"></div>
+        </div>
+      </div>
+
+      <!-- ALUMNOS TAB -->
+      <div id="tab-alumnos" class="hidden">
+        <div class="card">
+          <h3>Nuevo alumno</h3>
+          <div class="form-row">
+            <input type="text" id="newName" placeholder="Nombre completo">
+            <input type="tel" id="newPhone" placeholder="Telefono">
+            <input type="text" id="newPin" placeholder="PIN" value="1234" maxlength="6">
+            <button class="btn btn-primary" onclick="addStudent()">Agregar</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Alumnos (<span id="studentCount">0</span>)</h3>
+          <input type="text" class="search-bar" placeholder="Buscar alumno..." oninput="filterStudents(this.value)">
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Telefono</th>
+                  <th>PIN</th>
+                  <th>Clases semana</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- HORARIOS TAB -->
+      <div id="tab-horarios" class="hidden">
+        <div class="card">
+          <h3>Agregar horario</h3>
+          <div class="form-row">
+            <select id="newSlotDay">
+              <option value="0">Lunes</option>
+              <option value="1">Martes</option>
+              <option value="2">Miercoles</option>
+              <option value="3">Jueves</option>
+              <option value="4">Viernes</option>
+            </select>
+            <input type="time" id="newSlotTime" value="09:00">
+            <button class="btn btn-primary" onclick="addSlot()">Agregar</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Horarios configurados</h3>
+          <div id="slotsConfig"></div>
+        </div>
+      </div>
+
+      <!-- CONFIG TAB -->
+      <div id="tab-config" class="hidden">
+        <div class="card">
+          <h3>Configuracion general</h3>
+          <div style="display:grid;gap:16px">
+            <div>
+              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
+                Maximo clases por alumno / semana
+              </label>
+              <input type="number" id="cfgMaxWeek" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" min="1" max="5">
+            </div>
+            <div>
+              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
+                Maximo clases por dia
+              </label>
+              <input type="number" id="cfgMaxDay" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" min="1" max="30">
+            </div>
+            <div>
+              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
+                Duracion clase (minutos)
+              </label>
+              <input type="number" id="cfgDuration" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" min="15" max="120" step="5">
+            </div>
+            <div>
+              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
+                PIN de administrador
+              </label>
+              <input type="text" id="cfgAdminPin" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" maxlength="10">
+            </div>
+            <button class="btn btn-primary" onclick="saveConfig()">Guardar configuracion</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://uwcldzuyvkoecnmcprle.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y2xkenV5dmtvZWNubWNwcmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NzE3NTQsImV4cCI6MjA4MjM0Nzc1NH0.XU8WPZgZlMht3f5G2Ui4_R230Trb6p3BLdwRJbp2Eyg';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const DAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
+    let allStudents = [];
+    let allSlots = [];
+    let allConfig = {};
+    let adminWeekOffset = 0;
+
+    // Admin login
+    document.getElementById('adminPinInput').addEventListener('keypress', e => {
+      if (e.key === 'Enter') adminLogin();
+    });
+
+    async function adminLogin() {
+      const pin = document.getElementById('adminPinInput').value;
+      const { data } = await sb.from('ae_config').select('*').eq('key', 'admin_pin').single();
+
+      if (!data || data.value !== pin) {
+        showToast('PIN incorrecto', 'error');
+        return;
+      }
+
+      document.getElementById('adminLogin').classList.add('hidden');
+      document.getElementById('adminPanel').classList.remove('hidden');
+      loadAll();
+    }
+
+    async function loadAll() {
+      // Config
+      const { data: cfg } = await sb.from('ae_config').select('*');
+      if (cfg) cfg.forEach(r => allConfig[r.key] = r.value);
+
+      document.getElementById('cfgMaxWeek').value = allConfig.max_clases_alumno_semana || 2;
+      document.getElementById('cfgMaxDay').value = allConfig.max_clases_dia || 15;
+      document.getElementById('cfgDuration').value = allConfig.duracion_clase_min || 45;
+      document.getElementById('cfgAdminPin').value = allConfig.admin_pin || '0000';
+
+      await Promise.all([loadStudents(), loadSlots(), loadAgenda(), loadStats()]);
+    }
+
+    // ==========================================
+    // STATS
+    // ==========================================
+    async function loadStats() {
+      const { count: totalStudents } = await sb.from('ae_alumnos').select('*', { count: 'exact', head: true }).eq('activo', true);
+
+      const weekDates = getWeekDates(0);
+      const weekStart = formatDate(weekDates[0]);
+      const weekEnd = formatDate(weekDates[4]);
+      const { count: weekBookings } = await sb.from('ae_reservas').select('*', { count: 'exact', head: true })
+        .gte('fecha', weekStart).lte('fecha', weekEnd).eq('estado', 'confirmada');
+
+      const totalSlots = allSlots.filter(s => s.activo).length;
+      const occupancy = totalSlots > 0 ? Math.round((weekBookings || 0) / totalSlots * 100) : 0;
+
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-box">
+          <div class="num">${totalStudents || 0}</div>
+          <div class="lbl">Alumnos activos</div>
+        </div>
+        <div class="stat-box">
+          <div class="num">${weekBookings || 0}</div>
+          <div class="lbl">Reservas esta semana</div>
+        </div>
+        <div class="stat-box">
+          <div class="num">${totalSlots}</div>
+          <div class="lbl">Slots / semana</div>
+        </div>
+        <div class="stat-box">
+          <div class="num">${occupancy}%</div>
+          <div class="lbl">Ocupacion</div>
+        </div>
+      `;
+    }
+
+    // ==========================================
+    // TABS
+    // ==========================================
+    function switchTab(name) {
+      ['agenda', 'alumnos', 'horarios', 'config'].forEach(t => {
+        document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
+      });
+      document.querySelectorAll('.tab').forEach((btn, i) => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase().includes(name.slice(0, 4)));
+      });
+    }
+
+    // ==========================================
+    // STUDENTS
+    // ==========================================
+    async function loadStudents() {
+      const { data } = await sb.from('ae_alumnos').select('*').order('nombre');
+      allStudents = data || [];
+      renderStudents(allStudents);
+    }
+
+    function filterStudents(q) {
+      const filtered = allStudents.filter(s =>
+        s.nombre.toLowerCase().includes(q.toLowerCase()) ||
+        s.telefono.includes(q)
+      );
+      renderStudents(filtered);
+    }
+
+    async function renderStudents(students) {
+      document.getElementById('studentCount').textContent = allStudents.filter(s => s.activo).length;
+
+      // Get this week's bookings count per student
+      const weekDates = getWeekDates(0);
+      const weekStart = formatDate(weekDates[0]);
+      const weekEnd = formatDate(weekDates[4]);
+      const { data: reservas } = await sb.from('ae_reservas').select('alumno_id')
+        .gte('fecha', weekStart).lte('fecha', weekEnd).eq('estado', 'confirmada');
+
+      const countMap = {};
+      (reservas || []).forEach(r => {
+        countMap[r.alumno_id] = (countMap[r.alumno_id] || 0) + 1;
+      });
+
+      const html = students.map(s => `
+        <tr style="${!s.activo ? 'opacity:0.5' : ''}">
+          <td><strong>${s.nombre}</strong></td>
+          <td>${s.telefono}</td>
+          <td><code>${s.pin}</code></td>
+          <td><span class="badge badge-blue">${countMap[s.id] || 0} / ${allConfig.max_clases_alumno_semana || 2}</span></td>
+          <td>${s.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
+          <td>
+            <button class="btn btn-small ${s.activo ? 'btn-warning' : 'btn-success'}"
+                    onclick="toggleStudent('${s.id}', ${!s.activo})">
+              ${s.activo ? 'Desactivar' : 'Activar'}
+            </button>
+            <button class="btn btn-small btn-danger" onclick="deleteStudent('${s.id}', '${s.nombre}')">Eliminar</button>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('studentsTable').innerHTML = html ||
+        '<tr><td colspan="6" style="text-align:center;color:var(--text-light)">No hay alumnos</td></tr>';
+    }
+
+    async function addStudent() {
+      const nombre = document.getElementById('newName').value.trim();
+      const telefono = document.getElementById('newPhone').value.replace(/\s/g, '');
+      const pin = document.getElementById('newPin').value.trim() || '1234';
+
+      if (!nombre || !telefono) return showToast('Nombre y telefono son obligatorios', 'error');
+
+      const { error } = await sb.from('ae_alumnos').insert({ nombre, telefono, pin });
+      if (error) {
+        if (error.message.includes('unique') || error.message.includes('duplicate')) {
+          showToast('Ya existe un alumno con ese telefono', 'error');
+        } else {
+          showToast('Error: ' + error.message, 'error');
+        }
+        return;
+      }
+
+      showToast('Alumno agregado', 'success');
+      document.getElementById('newName').value = '';
+      document.getElementById('newPhone').value = '';
+      document.getElementById('newPin').value = '1234';
+      loadStudents();
+      loadStats();
+    }
+
+    async function toggleStudent(id, activo) {
+      await sb.from('ae_alumnos').update({ activo }).eq('id', id);
+      showToast(activo ? 'Alumno activado' : 'Alumno desactivado', 'success');
+      loadStudents();
+      loadStats();
+    }
+
+    async function deleteStudent(id, nombre) {
+      if (!confirm(`Eliminar a ${nombre}? Se borraran todas sus reservas.`)) return;
+      await sb.from('ae_alumnos').delete().eq('id', id);
+      showToast('Alumno eliminado', 'success');
+      loadStudents();
+      loadStats();
+    }
+
+    // ==========================================
+    // SLOTS
+    // ==========================================
+    async function loadSlots() {
+      const { data } = await sb.from('ae_slots').select('*').order('dia_semana').order('hora_inicio');
+      allSlots = data || [];
+      renderSlots();
+    }
+
+    function renderSlots() {
+      const html = DAYS.map((day, i) => {
+        const daySlots = allSlots.filter(s => s.dia_semana === i);
+        const slotsHtml = daySlots.map(s => `
+          <span style="display:inline-flex;align-items:center;gap:4px;background:${s.activo ? '#dbeafe' : '#fee2e2'};
+                padding:4px 10px;border-radius:6px;font-size:0.8rem;margin:2px">
+            ${s.hora_inicio.slice(0, 5)}
+            <button onclick="toggleSlot(${s.id}, ${!s.activo})"
+                    style="background:none;border:none;cursor:pointer;font-size:0.7rem">
+              ${s.activo ? '&#10005;' : '&#10003;'}
+            </button>
+          </span>
+        `).join('');
+
+        return `
+          <div style="margin-bottom:12px">
+            <strong style="font-size:0.85rem">${day}</strong>
+            <span style="font-size:0.75rem;color:var(--text-light)"> (${daySlots.filter(s=>s.activo).length} slots)</span>
+            <div style="margin-top:6px">${slotsHtml || '<span style="color:var(--text-light);font-size:0.8rem">Sin horarios</span>'}</div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('slotsConfig').innerHTML = html;
+    }
+
+    async function addSlot() {
+      const dia = parseInt(document.getElementById('newSlotDay').value);
+      const hora = document.getElementById('newSlotTime').value;
+      if (!hora) return showToast('Selecciona una hora', 'error');
+
+      const { error } = await sb.from('ae_slots').insert({ dia_semana: dia, hora_inicio: hora });
+      if (error) {
+        if (error.message.includes('unique') || error.message.includes('duplicate')) {
+          showToast('Ese horario ya existe', 'error');
+        } else {
+          showToast('Error: ' + error.message, 'error');
+        }
+        return;
+      }
+      showToast('Horario agregado', 'success');
+      loadSlots();
+    }
+
+    async function toggleSlot(id, activo) {
+      await sb.from('ae_slots').update({ activo }).eq('id', id);
+      loadSlots();
+    }
+
+    // ==========================================
+    // AGENDA
+    // ==========================================
+    function changeAdminWeek(dir) {
+      adminWeekOffset += dir;
+      loadAgenda();
+    }
+
+    async function loadAgenda() {
+      const dates = getWeekDates(adminWeekOffset);
+      const weekStart = formatDate(dates[0]);
+      const weekEnd = formatDate(dates[4]);
+      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+      document.getElementById('adminWeekLabel').textContent =
+        `${dates[0].getDate()} ${monthNames[dates[0].getMonth()]} - ${dates[4].getDate()} ${monthNames[dates[4].getMonth()]}`;
+
+      const { data: reservas } = await sb.from('ae_reservas')
+        .select('*, ae_alumnos(nombre, telefono)')
+        .gte('fecha', weekStart).lte('fecha', weekEnd)
+        .eq('estado', 'confirmada')
+        .order('hora_inicio');
+
+      const html = dates.map((date, i) => {
+        const dateStr = formatDate(date);
+        const daySlots = allSlots.filter(s => s.dia_semana === i && s.activo);
+        const dayReservas = (reservas || []).filter(r => r.fecha === dateStr);
+
+        const slotsHtml = daySlots.map(slot => {
+          const reserva = dayReservas.find(r => r.hora_inicio === slot.hora_inicio + ':00');
+          const dur = parseInt(allConfig.duracion_clase_min || '45');
+          const endTime = addMinutes(slot.hora_inicio, dur);
+
+          if (reserva) {
+            return `
+              <div class="agenda-slot">
+                <span class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</span>
+                <span class="student"><strong>${reserva.ae_alumnos.nombre}</strong> <small>(${reserva.ae_alumnos.telefono})</small></span>
+                <button class="btn btn-small btn-danger" onclick="adminCancelBooking('${reserva.id}')">Cancelar</button>
+              </div>
+            `;
+          }
+          return `
+            <div class="agenda-slot free">
+              <span class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</span>
+              <span class="student">Libre</span>
+            </div>
+          `;
+        }).join('');
+
+        const booked = dayReservas.length;
+        const total = daySlots.length;
+
+        return `
+          <div class="agenda-day">
+            <h4>${DAYS[i]} ${date.getDate()} ${monthNames[date.getMonth()]}
+              <span style="float:right;font-weight:400;font-size:0.8rem">${booked}/${total} ocupados</span>
+            </h4>
+            ${slotsHtml || '<p style="padding:10px;color:var(--text-light);font-size:0.85rem">Sin horarios</p>'}
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('agendaContent').innerHTML = html;
+    }
+
+    async function adminCancelBooking(id) {
+      if (!confirm('Cancelar esta reserva?')) return;
+      await sb.from('ae_reservas').update({ estado: 'cancelada' }).eq('id', id);
+      showToast('Reserva cancelada', 'success');
+      loadAgenda();
+      loadStats();
+    }
+
+    // ==========================================
+    // CONFIG
+    // ==========================================
+    async function saveConfig() {
+      const updates = [
+        { key: 'max_clases_alumno_semana', value: document.getElementById('cfgMaxWeek').value },
+        { key: 'max_clases_dia', value: document.getElementById('cfgMaxDay').value },
+        { key: 'duracion_clase_min', value: document.getElementById('cfgDuration').value },
+        { key: 'admin_pin', value: document.getElementById('cfgAdminPin').value },
+      ];
+
+      for (const u of updates) {
+        await sb.from('ae_config').update({ value: u.value }).eq('key', u.key);
+      }
+
+      allConfig = {};
+      updates.forEach(u => allConfig[u.key] = u.value);
+      showToast('Configuracion guardada', 'success');
+    }
+
+    // ==========================================
+    // UTILS
+    // ==========================================
+    function getWeekDates(offset) {
+      const now = new Date();
+      const monday = new Date(now);
+      const day = now.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      monday.setDate(now.getDate() + diff + (offset * 7));
+      monday.setHours(0, 0, 0, 0);
+      const dates = [];
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        dates.push(d);
+      }
+      return dates;
+    }
+
+    function formatDate(d) { return d.toISOString().split('T')[0]; }
+
+    function addMinutes(timeStr, mins) {
+      const [h, m] = timeStr.split(':').map(Number);
+      const total = h * 60 + m + mins;
+      return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    }
+
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + type;
+      setTimeout(() => t.className = 'toast', 3000);
+    }
+  </script>
+</body>
+</html>
