@@ -280,7 +280,30 @@
     </div>
 
     <!-- TAB: AGENDA -->
-    <div id="tab-agenda">
+    <div id="tab-agenda" class="hidden">
+      <div class="card">
+        <div class="card-header"><h3>Asignar clase manualmente</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-field">
+              <label>Alumno</label>
+              <select id="assignStudent"></select>
+            </div>
+            <div class="form-field">
+              <label>Fecha</label>
+              <input type="date" id="assignDate">
+            </div>
+            <div class="form-field">
+              <label>Hora</label>
+              <select id="assignTime"></select>
+            </div>
+            <div class="form-field" style="flex:0">
+              <label>&nbsp;</label>
+              <button class="btn btn-success" onclick="adminAssignClass()">Asignar</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-header">
           <h3>Agenda semanal</h3>
@@ -520,6 +543,7 @@ async function loadAll() {
   document.getElementById('cfgAdminPin').value = cfg.admin_pin||'0000';
   document.getElementById('cfgRegister').value = cfg.permitir_registro||'true';
   await Promise.all([loadStudents(),loadSlots(),loadAgenda(),loadStats(),loadAvisos(),loadBlocked(),loadPendientes()]);
+  loadAssignForm();
 }
 
 // STATS
@@ -652,6 +676,46 @@ async function toggleSlot(id,val) {
 
 // AGENDA
 function changeAdminWeek(d) { adminWeekOff+=d; loadAgenda(); }
+
+// ASSIGN CLASS MANUALLY
+function loadAssignForm() {
+  // Fill student select
+  const opts = allStudents.filter(s=>s.activo).map(s=>`<option value="${s.id}">${esc(s.nombre)}</option>`).join('');
+  document.getElementById('assignStudent').innerHTML = opts;
+
+  // Fill time select with slot times
+  const times = [...new Set(allSlots.filter(s=>s.activo).map(s=>s.hora_inicio.slice(0,5)))].sort();
+  document.getElementById('assignTime').innerHTML = times.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+  // Default date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate()+1);
+  document.getElementById('assignDate').value = fmt(tomorrow);
+}
+
+async function adminAssignClass() {
+  const alumnoId = document.getElementById('assignStudent').value;
+  const fecha = document.getElementById('assignDate').value;
+  const hora = document.getElementById('assignTime').value;
+
+  if (!alumnoId || !fecha || !hora) return toast('Completa todos los campos','error');
+
+  const { error } = await sb.from('ae_reservas').insert({
+    alumno_id: alumnoId,
+    fecha: fecha,
+    hora_inicio: hora,
+    estado: 'confirmada'
+  });
+
+  if (error) {
+    if (error.message.includes('unique') || error.message.includes('duplicate'))
+      return toast('Ese horario ya esta ocupado','error');
+    return toast('Error: ' + error.message, 'error');
+  }
+
+  toast('Clase asignada correctamente','success');
+  loadAgenda(); loadStats();
+}
 
 async function loadAgenda() {
   const dates = getWeekDates(adminWeekOff);
