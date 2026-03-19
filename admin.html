@@ -315,7 +315,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Nombre</th><th>Telefono</th><th>PIN</th><th>Semana</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Telefono</th><th>Semana</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody id="studentsTable"></tbody>
           </table>
         </div>
@@ -365,20 +365,44 @@
       </div>
     </div>
 
-    <!-- TAB: BLOQUEOS -->
+    <!-- TAB: BLOQUEOS - Calendario de disponibilidad -->
     <div id="tab-bloqueos" class="hidden">
+      <!-- Bloquear dia completo -->
       <div class="card">
-        <div class="card-header"><h3>Bloquear dia</h3></div>
+        <div class="card-header"><h3>&#128683; Bloquear dia completo</h3></div>
         <div class="card-body">
           <div class="form-row">
             <div class="form-field"><label>Fecha</label><input type="date" id="blockDate"></div>
             <div class="form-field"><label>Motivo</label><input type="text" id="blockReason" placeholder="Festivo, vacaciones..."></div>
-            <div class="form-field" style="flex:0"><label>&nbsp;</label><button class="btn btn-danger" onclick="blockDay()">Bloquear</button></div>
+            <div class="form-field" style="flex:0"><label>&nbsp;</label><button class="btn btn-danger" onclick="blockDay()">Bloquear dia</button></div>
           </div>
         </div>
       </div>
+
+      <!-- Calendario visual -->
       <div class="card">
-        <div class="card-header"><h3>Dias bloqueados</h3></div>
+        <div class="card-header">
+          <h3>&#128197; Calendario de disponibilidad</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-sm btn-outline" onclick="changeCalWeek(-1)">&#9664;</button>
+            <span id="calWeekLabel" style="font-size:0.85rem;font-weight:600;min-width:160px;text-align:center"></span>
+            <button class="btn btn-sm btn-outline" onclick="changeCalWeek(1)">&#9654;</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- Leyenda -->
+          <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.75rem"><span style="width:14px;height:14px;border-radius:4px;background:#dcfce7;border:1px solid #a7f3d0;display:inline-block"></span> Disponible</div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.75rem"><span style="width:14px;height:14px;border-radius:4px;background:#fee2e2;border:1px solid #fca5a5;display:inline-block"></span> Bloqueado</div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.75rem"><span style="width:14px;height:14px;border-radius:4px;background:#dbeafe;border:1px solid #93c5fd;display:inline-block"></span> Reservado</div>
+          </div>
+          <div id="calGrid" style="overflow-x:auto"></div>
+        </div>
+      </div>
+
+      <!-- Dias bloqueados -->
+      <div class="card">
+        <div class="card-header"><h3>Dias completos bloqueados</h3></div>
         <div class="card-body" id="blockedList"></div>
       </div>
     </div>
@@ -494,6 +518,7 @@ function switchTab(name) {
   tabs.forEach(t => document.getElementById('tab-'+t).classList.toggle('hidden', t!==name));
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
   if (name === 'pendientes') loadPendientes();
+  if (name === 'bloqueos') loadCalendar();
 }
 
 // STUDENTS
@@ -520,7 +545,6 @@ async function renderStudents(list) {
     <tr style="${s.activo?'':'opacity:0.5'}">
       <td><strong>${esc(s.nombre)}</strong> ${s.sin_limite?'<span class="badge" style="background:#fef3c7;color:#92400e">Sin limite</span>':''}</td>
       <td>${s.telefono}</td>
-      <td><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px">${s.pin}</code></td>
       <td><span class="badge badge-blue">${cnt[s.id]||0}/${s.sin_limite?'&#8734;':(cfg.max_clases_alumno_semana||2)}</span></td>
       <td>${s.activo?'<span class="badge badge-green">Activo</span>':'<span class="badge badge-red">Inactivo</span>'}</td>
       <td style="white-space:nowrap">
@@ -698,6 +722,114 @@ async function deleteAviso(id) {
   if(!confirm('Eliminar aviso?')) return;
   await sb.from('ae_avisos').delete().eq('id',id);
   toast('Aviso eliminado','success'); loadAvisos();
+}
+
+// CALENDAR
+let calWeekOff = 0;
+function changeCalWeek(d) { calWeekOff += d; loadCalendar(); }
+
+async function loadCalendar() {
+  const dates = getWeekDates(calWeekOff);
+  document.getElementById('calWeekLabel').textContent =
+    `${dates[0].getDate()} ${MONTHS_SHORT[dates[0].getMonth()]} - ${dates[4].getDate()} ${MONTHS_SHORT[dates[4].getMonth()]}`;
+
+  const ws = fmt(dates[0]), we = fmt(dates[4]);
+  const [{data:reservas},{data:blocked},{data:slotBlocks}] = await Promise.all([
+    sb.from('ae_reservas').select('fecha,hora_inicio').gte('fecha',ws).lte('fecha',we).in('estado',['pendiente','confirmada']),
+    sb.from('ae_dias_bloqueados').select('fecha').gte('fecha',ws).lte('fecha',we),
+    sb.from('ae_slots_bloqueados').select('*').gte('fecha',ws).lte('fecha',we)
+  ]);
+
+  const blockedSet = new Set((blocked||[]).map(b=>b.fecha));
+  const slotBlockSet = new Set((slotBlocks||[]).map(b=>b.fecha+'_'+b.hora_inicio.slice(0,5)));
+  const reservaSet = new Set((reservas||[]).map(r=>r.fecha+'_'+r.hora_inicio.slice(0,5)));
+
+  // Build grid: rows = time slots, cols = days
+  const daySlots0 = allSlots.filter(s=>s.dia_semana===0&&s.activo).sort((a,b)=>a.hora_inicio.localeCompare(b.hora_inicio));
+  const times = daySlots0.map(s=>s.hora_inicio.slice(0,5));
+
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;min-width:500px">';
+  // Header
+  html += '<thead><tr><th style="padding:8px;text-align:left;font-size:0.7rem">Hora</th>';
+  dates.forEach((d,i) => {
+    const isDayBlocked = blockedSet.has(fmt(d));
+    html += `<th style="padding:8px;text-align:center;font-size:0.7rem;${isDayBlocked?'background:#fee2e2':''}">${DAYS[i]}<br>${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}
+      ${isDayBlocked?'<br><span style="color:var(--danger);font-size:0.6rem">DIA BLOQUEADO</span>':''}
+      <br><div style="display:flex;gap:2px;justify-content:center;margin-top:4px">
+        <button class="btn btn-sm" style="padding:2px 6px;font-size:0.6rem;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" onclick="blockRange('${fmt(d)}','morning')">Bloquear mañana</button>
+        <button class="btn btn-sm" style="padding:2px 6px;font-size:0.6rem;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" onclick="blockRange('${fmt(d)}','afternoon')">Bloquear tarde</button>
+      </div>
+    </th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // Rows
+  times.forEach(t => {
+    const h = parseInt(t.split(':')[0]);
+    const isMorning = h < 14;
+    html += `<tr><td style="padding:6px 8px;font-weight:700;border-bottom:1px solid var(--border);background:#f8fafc;white-space:nowrap">${t}</td>`;
+    dates.forEach((d,i) => {
+      const dateStr = fmt(d);
+      const key = dateStr+'_'+t;
+      const isDayBlocked = blockedSet.has(dateStr);
+      const isSlotBlocked = slotBlockSet.has(key);
+      const isReserved = reservaSet.has(key);
+      const dayActive = allSlots.some(s=>s.dia_semana===i&&s.activo&&s.hora_inicio.slice(0,5)===t);
+
+      let bg = '#dcfce7'; let border = '#a7f3d0'; let text = ''; let cursor = 'pointer';
+      let onclick = `toggleSlotBlock('${dateStr}','${t}')`;
+
+      if (isDayBlocked || isSlotBlocked) {
+        bg = '#fee2e2'; border = '#fca5a5'; text = '&#10005;';
+        onclick = isSlotBlocked ? `toggleSlotBlock('${dateStr}','${t}')` : '';
+        cursor = isSlotBlocked ? 'pointer' : 'default';
+      } else if (isReserved) {
+        bg = '#dbeafe'; border = '#93c5fd'; text = '&#128100;'; onclick = ''; cursor = 'default';
+      } else if (!dayActive) {
+        bg = '#f1f5f9'; border = '#e2e8f0'; text = '-'; onclick = ''; cursor = 'default';
+      }
+
+      html += `<td style="padding:4px;text-align:center;border-bottom:1px solid var(--border);cursor:${cursor}" onclick="${onclick}">
+        <div style="background:${bg};border:1px solid ${border};border-radius:6px;padding:6px 4px;font-size:0.75rem;min-height:30px;display:flex;align-items:center;justify-content:center">${text}</div>
+      </td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+async function toggleSlotBlock(fecha, hora) {
+  // Check if already blocked
+  const {data} = await sb.from('ae_slots_bloqueados').select('id').eq('fecha',fecha).eq('hora_inicio',hora+':00');
+  if (data && data.length > 0) {
+    // Unblock
+    await sb.from('ae_slots_bloqueados').delete().eq('fecha',fecha).eq('hora_inicio',hora+':00');
+    toast('Hora desbloqueada','success');
+  } else {
+    // Block
+    await sb.from('ae_slots_bloqueados').insert({fecha, hora_inicio:hora});
+    toast('Hora bloqueada','success');
+  }
+  loadCalendar();
+}
+
+async function blockRange(fecha, range) {
+  const times = allSlots.filter(s=>s.dia_semana===0&&s.activo).map(s=>s.hora_inicio.slice(0,5));
+  let toBlock;
+  if (range === 'morning') {
+    toBlock = times.filter(t => parseInt(t.split(':')[0]) < 14);
+  } else {
+    toBlock = times.filter(t => parseInt(t.split(':')[0]) >= 14);
+  }
+
+  const inserts = toBlock.map(t => ({fecha, hora_inicio: t}));
+  for (const ins of inserts) {
+    await sb.from('ae_slots_bloqueados').upsert(ins, {onConflict:'fecha,hora_inicio'}).select();
+  }
+  toast(`${range==='morning'?'Mañana':'Tarde'} bloqueada`, 'success');
+  loadCalendar();
 }
 
 // BLOCKED DAYS

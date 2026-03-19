@@ -1315,16 +1315,18 @@ async function renderWeek() {
     weekOffset === 0 ? 'Semana actual' : (weekOffset === 1 ? 'Proxima semana' : `En ${weekOffset} semanas`);
 
   // Fetch data
-  const [resReservas, resBlocked, resAvisos] = await Promise.all([
+  const [resReservas, resBlocked, resAvisos, resSlotBlocks] = await Promise.all([
     sb.from('ae_reservas').select('*, ae_alumnos(nombre)').gte('fecha', ws).lte('fecha', we).in('estado', ['pendiente','confirmada']),
     sb.from('ae_dias_bloqueados').select('*').gte('fecha', ws).lte('fecha', we),
-    sb.from('ae_avisos').select('*').eq('activo', true).order('created_at', {ascending: false}).limit(3)
+    sb.from('ae_avisos').select('*').eq('activo', true).order('created_at', {ascending: false}).limit(3),
+    sb.from('ae_slots_bloqueados').select('fecha,hora_inicio').gte('fecha', ws).lte('fecha', we)
   ]);
 
   weekReservas = resReservas.data || [];
   blockedDays = (resBlocked.data || []).map(b => b.fecha);
   const blockedMap = {};
   (resBlocked.data || []).forEach(b => blockedMap[b.fecha] = b.motivo);
+  const blockedSlotSet = new Set((resSlotBlocks.data || []).map(b => b.fecha + '_' + b.hora_inicio.slice(0,5)));
 
   // Avisos
   const avisos = resAvisos.data || [];
@@ -1356,7 +1358,8 @@ async function renderWeek() {
     const isBlocked = blockedDays.includes(fmtDate(dt));
     const dayRes = weekReservas.filter(r => r.fecha === fmtDate(dt));
     const daySlots = slots.filter(s => s.dia_semana === i);
-    const free = isBlocked ? 0 : daySlots.length - dayRes.length;
+    const slotBlockCount = daySlots.filter(s => blockedSlotSet.has(fmtDate(dt) + '_' + s.hora_inicio.slice(0,5))).length;
+    const free = isBlocked ? 0 : daySlots.length - dayRes.length - slotBlockCount;
 
     if (isPastDay) return `
       <div class="day-tab" style="opacity:0.3;cursor:default;pointer-events:none">
@@ -1385,7 +1388,7 @@ async function renderWeek() {
   } else {
     document.getElementById('slotsContainer').classList.remove('hidden');
     document.getElementById('blockedDayMsg').classList.add('hidden');
-    renderSlots(dates);
+    renderSlots(dates, blockedSlotSet);
   }
 
   renderMyBookings(dates);
@@ -1399,7 +1402,7 @@ function selectDay(i) {
 // =============================================
 // RENDER SLOTS
 // =============================================
-function renderSlots(dates) {
+function renderSlots(dates, blockedSlotSet = new Set()) {
   const date = dates[selectedDay];
   const dateStr = fmtDate(date);
   const now = new Date();
@@ -1435,6 +1438,19 @@ function renderSlots(dates) {
     const reserva = dayRes.find(r => r.hora_inicio.slice(0,5) === timeStr.slice(0,5));
     const isMine = reserva && reserva.alumno_id === currentUser.id;
     const slotPast = isPast || (isToday && timeStr < now.toTimeString().slice(0,5));
+    const isSlotBlocked = blockedSlotSet.has(dateStr + '_' + timeShort);
+
+    if (isSlotBlocked && !isMine) {
+      return `
+        <div class="slot-item booked">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+            <div class="slot-separator"></div>
+            <div class="slot-info"><div class="slot-status-text">No disponible</div><div class="slot-detail">Hora bloqueada</div></div>
+          </div>
+          <span class="slot-booked-badge">Cerrado</span>
+        </div>`;
+    }
 
     if (slotPast && !reserva) {
       return `
