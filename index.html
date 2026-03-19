@@ -1266,14 +1266,31 @@ async function showApp() {
 }
 
 async function refreshAll() {
-  // Reload pair info
-  const {data:parejas} = await sb.from('ae_parejas')
-    .select('*,alumno1:ae_alumnos!alumno1_id(id,nombre),alumno2:ae_alumnos!alumno2_id(id,nombre)')
-    .eq('activo', true)
-    .or(`alumno1_id.eq.${currentUser.id},alumno2_id.eq.${currentUser.id}`);
-  myPareja = (parejas && parejas.length > 0) ? parejas[0] : null;
-  await renderWeek();
-  toast('Actualizado', 'success');
+  try {
+    // Reload user data
+    const { data: freshUser } = await sb.from('ae_alumnos').select('*').eq('id', currentUser.id).single();
+    if (freshUser) { currentUser = freshUser; localStorage.setItem('ae_user', JSON.stringify(freshUser)); }
+
+    // Reload config
+    const { data: cfgData } = await sb.from('ae_config').select('*');
+    if (cfgData) { cfg = {}; cfgData.forEach(r => cfg[r.key] = r.value); }
+
+    // Reload slots
+    const { data: s } = await sb.from('ae_slots').select('*').eq('activo', true).order('hora_inicio');
+    if (s) slots = s;
+
+    // Reload pair info
+    const {data:parejas} = await sb.from('ae_parejas')
+      .select('*,alumno1:ae_alumnos!alumno1_id(id,nombre),alumno2:ae_alumnos!alumno2_id(id,nombre)')
+      .eq('activo', true)
+      .or(`alumno1_id.eq.${currentUser.id},alumno2_id.eq.${currentUser.id}`);
+    myPareja = (parejas && parejas.length > 0) ? parejas[0] : null;
+
+    await renderWeek();
+    toast('Actualizado', 'success');
+  } catch(e) {
+    toast('Error al actualizar: ' + e.message, 'error');
+  }
 }
 
 function switchView(view) {
