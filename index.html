@@ -1398,12 +1398,13 @@ async function renderWeek() {
     weekOffset === 0 ? 'Semana actual' : (weekOffset === 1 ? 'Proxima semana' : `En ${weekOffset} semanas`);
 
   // Fetch data
-  const [resReservas, resBlocked, resAvisos, resSlotBlocks, resPairRes] = await Promise.all([
+  const [resReservas, resBlocked, resAvisos, resSlotBlocks, resPairRes, resMyDisp] = await Promise.all([
     sb.from('ae_reservas').select('*, ae_alumnos(nombre)').gte('fecha', ws).lte('fecha', we).in('estado', ['pendiente','confirmada']),
     sb.from('ae_dias_bloqueados').select('*').gte('fecha', ws).lte('fecha', we),
     sb.from('ae_avisos').select('*').eq('activo', true).order('created_at', {ascending: false}).limit(3),
     sb.from('ae_slots_bloqueados').select('fecha,hora_inicio').gte('fecha', ws).lte('fecha', we),
-    sb.from('ae_reservas_pareja').select('*').gte('fecha', ws).lte('fecha', we).in('estado', ['propuesta','aceptada','confirmada'])
+    sb.from('ae_reservas_pareja').select('*').gte('fecha', ws).lte('fecha', we).in('estado', ['propuesta','aceptada','confirmada']),
+    sb.from('ae_disponibilidad').select('*').eq('alumno_id', currentUser.id).gte('fecha', ws).lte('fecha', we)
   ]);
 
   weekReservas = resReservas.data || [];
@@ -1411,6 +1412,7 @@ async function renderWeek() {
   const blockedMap = {};
   (resBlocked.data || []).forEach(b => blockedMap[b.fecha] = b.motivo);
   const blockedSlotSet = new Set((resSlotBlocks.data || []).map(b => b.fecha + '_' + b.hora_inicio.slice(0,5)));
+  const myDispSet = new Set((resMyDisp.data || []).map(d => d.fecha + '_' + d.hora_inicio.slice(0,5)));
   weekPairReservas = resPairRes.data || [];
   // Build set of slots occupied by pair bookings
   const pairSlotSet = new Set();
@@ -1480,7 +1482,7 @@ async function renderWeek() {
   } else {
     document.getElementById('slotsContainer').classList.remove('hidden');
     document.getElementById('blockedDayMsg').classList.add('hidden');
-    renderSlots(dates, blockedSlotSet, pairSlotSet);
+    renderSlots(dates, blockedSlotSet, pairSlotSet, myDispSet);
   }
 
   renderMyBookings(dates);
@@ -1495,7 +1497,7 @@ function selectDay(i) {
 // =============================================
 // RENDER SLOTS
 // =============================================
-function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set()) {
+function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set(), myDispSet = new Set()) {
   const date = dates[selectedDay];
   const dateStr = fmtDate(date);
   const now = new Date();
@@ -1607,6 +1609,7 @@ function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set())
     }
 
     if (reserva) {
+      const isDispB = myDispSet.has(dateStr + '_' + timeShort);
       return `
         <div class="slot-item booked">
           <div class="slot-left">
@@ -1614,7 +1617,10 @@ function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set())
             <div class="slot-separator"></div>
             <div class="slot-info"><div class="slot-status-text">Ocupado</div><div class="slot-detail">${dur} min</div></div>
           </div>
-          <span class="slot-booked-badge">No disponible</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="slot-booked-badge">Ocupado</span>
+            <button onclick="toggleDispQuick('${dateStr}','${timeStr}','${timeShort}')" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:2px solid ${isDispB?'var(--success)':'#cbd5e1'};background:${isDispB?'var(--success)':'white'};color:${isDispB?'white':'#94a3b8'};font-family:inherit">${isDispB?'&#10003; Disp.':'Disp.'}</button>
+          </div>
         </div>`;
     }
 
@@ -1630,14 +1636,18 @@ function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set())
         </div>`;
     }
 
+    const isDisp = myDispSet.has(dateStr + '_' + timeShort);
     return `
-      <div class="slot-item available" onclick="confirmBook('${dateStr}','${timeStr}','${timeShort}','${DAYS[selectedDay]}')">
-        <div class="slot-left">
+      <div class="slot-item available" style="flex-wrap:wrap">
+        <div class="slot-left" onclick="confirmBook('${dateStr}','${timeStr}','${timeShort}','${DAYS[selectedDay]}')" style="cursor:pointer;flex:1">
           <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
           <div class="slot-separator"></div>
           <div class="slot-info"><div class="slot-status-text">Disponible</div><div class="slot-detail">${dur} min</div></div>
         </div>
-        <button class="slot-action-btn">Reservar</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="slot-action-btn" onclick="confirmBook('${dateStr}','${timeStr}','${timeShort}','${DAYS[selectedDay]}')">Reservar</button>
+          <button onclick="event.stopPropagation();toggleDispQuick('${dateStr}','${timeStr}','${timeShort}')" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:2px solid ${isDisp?'var(--success)':'#cbd5e1'};background:${isDisp?'var(--success)':'white'};color:${isDisp?'white':'#94a3b8'};font-family:inherit;transition:all 0.2s">${isDisp?'&#10003; Disp.':'Disp.'}</button>
+        </div>
       </div>`;
   }).join('');
 }
@@ -2113,6 +2123,21 @@ function renderDispSlots(dates) {
         <div style="width:32px;height:32px;border-radius:8px;border:2px solid ${isMarked?'var(--success)':'var(--border)'};background:${isMarked?'var(--success)':'white'};display:flex;align-items:center;justify-content:center;color:white;font-size:0.9rem">${isMarked?'&#10003;':''}</div>
       </div>`;
   }).join('');
+}
+
+async function toggleDispQuick(fecha, horaFull, horaShort) {
+  // Quick toggle from booking view
+  const {data:existing} = await sb.from('ae_disponibilidad').select('id')
+    .eq('alumno_id', currentUser.id).eq('fecha', fecha).eq('hora_inicio', horaFull);
+  if (existing && existing.length > 0) {
+    await sb.from('ae_disponibilidad').delete().eq('id', existing[0].id);
+  } else {
+    await sb.from('ae_disponibilidad').upsert(
+      { alumno_id: currentUser.id, fecha, hora_inicio: horaFull },
+      { onConflict: 'alumno_id,fecha,hora_inicio' }
+    );
+  }
+  await renderWeek();
 }
 
 async function toggleDisp(fecha, horaFull, horaShort) {
