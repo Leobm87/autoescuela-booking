@@ -1548,29 +1548,35 @@ function closeModal() {
 }
 
 async function modalAction() {
+  const fn = pendingFn;
   closeModal();
-  if (pendingFn) await pendingFn();
+  if (fn) await fn();
 }
 
 async function bookSlot(fecha, hora) {
-  const { error } = await sb.from('ae_reservas').insert({
-    alumno_id: currentUser.id, fecha, hora_inicio: hora, estado: 'confirmada'
-  });
+  try {
+    const { data, error } = await sb.from('ae_reservas').insert({
+      alumno_id: currentUser.id, fecha, hora_inicio: hora, estado: 'confirmada'
+    }).select();
 
-  if (error) {
-    if (error.message.includes('ya tiene'))
-      return toast('Ya tienes el maximo de clases esta semana', 'error');
-    if (error.message.includes('unique') || error.message.includes('duplicate'))
-      return toast('Ese horario acaba de ser reservado', 'error');
-    if (error.message.includes('limite'))
-      return toast('Limite de clases diarias alcanzado', 'error');
-    toast('Error al reservar', 'error');
-    renderWeek();
-    return;
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('ya tiene'))
+        return toast('Ya tienes el maximo de clases esta semana', 'error');
+      if (msg.includes('unique') || msg.includes('duplicate'))
+        return toast('Ese horario acaba de ser reservado', 'error');
+      if (msg.includes('limite'))
+        return toast('Limite de clases diarias alcanzado', 'error');
+      toast('Error: ' + msg, 'error');
+      await renderWeek();
+      return;
+    }
+
+    toast('Clase reservada correctamente', 'success');
+    await renderWeek();
+  } catch(e) {
+    toast('Error inesperado: ' + e.message, 'error');
   }
-
-  toast('Clase reservada correctamente', 'success');
-  renderWeek();
 }
 
 async function cancelBooking(id) {
