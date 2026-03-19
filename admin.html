@@ -737,7 +737,7 @@ function getWeekDates(off) {
   m.setDate(now.getDate()+(d===0?-6:1-d)+off*7); m.setHours(0,0,0,0);
   return Array.from({length:5},(_,i)=>{const dt=new Date(m);dt.setDate(m.getDate()+i);return dt;});
 }
-function fmt(d){return d.toISOString().split('T')[0];}
+function fmt(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
 function addMins(t,m){const[h,min]=t.split(':').map(Number);const tot=h*60+min+m;return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 

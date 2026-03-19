@@ -1218,7 +1218,13 @@ function showApp() {
 
   weekOffset = 0;
   const dow = new Date().getDay();
-  selectedDay = (dow >= 1 && dow <= 5) ? dow - 1 : 0;
+  // Si es sabado o domingo, ir a la semana siguiente
+  if (dow === 0 || dow === 6) {
+    weekOffset = 1;
+    selectedDay = 0; // Lunes
+  } else {
+    selectedDay = dow - 1; // Hoy (0=Lun)
+  }
   switchView('booking');
 }
 
@@ -1247,7 +1253,12 @@ function getWeekDates(off) {
     return dt;
   });
 }
-function fmtDate(d) { return d.toISOString().split('T')[0]; }
+function fmtDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function addMins(t, m) {
   const [h,min] = t.split(':').map(Number);
   const tot = h*60+min+m;
@@ -1317,13 +1328,23 @@ async function renderWeek() {
     .eq('alumno_id', currentUser.id).eq('estado', 'confirmada');
   document.getElementById('statTotal').textContent = count || 0;
 
-  // Day tabs
+  // Day tabs - hide past days for students
+  const todayDate = new Date(); todayDate.setHours(0,0,0,0);
   document.getElementById('dayTabs').innerHTML = dates.map((dt, i) => {
+    const isPastDay = dt < todayDate;
     const isToday = fmtDate(dt) === todayStr;
     const isBlocked = blockedDays.includes(fmtDate(dt));
     const dayRes = weekReservas.filter(r => r.fecha === fmtDate(dt));
     const daySlots = slots.filter(s => s.dia_semana === i);
     const free = isBlocked ? 0 : daySlots.length - dayRes.length;
+
+    if (isPastDay) return `
+      <div class="day-tab" style="opacity:0.3;cursor:default;pointer-events:none">
+        <div class="dt-name">${DAYS_SHORT[i]}</div>
+        <div class="dt-number">${dt.getDate()}</div>
+        <div class="dt-info">Pasado</div>
+      </div>`;
+
     return `
       <div class="day-tab ${i===selectedDay?'active':''} ${isToday?'today':''} ${isBlocked?'blocked':''}"
            onclick="${isBlocked?'':'selectDay('+i+')'}">
