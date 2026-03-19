@@ -1049,6 +1049,33 @@
     </div>
   </div>
 
+  <!-- VIEW: Disponibilidad -->
+  <div id="viewDisponible" class="app-content hidden">
+    <div style="margin-top:8px">
+      <!-- Week nav -->
+      <div class="week-nav">
+        <button class="week-nav-btn" onclick="changeDispWeek(-1)">&#9664;</button>
+        <div style="text-align:center">
+          <div class="week-nav-label" id="dispWeekLabel"></div>
+          <div class="week-nav-sub">Marca tus horas disponibles</div>
+        </div>
+        <button class="week-nav-btn" onclick="changeDispWeek(1)">&#9654;</button>
+      </div>
+
+      <!-- Day tabs -->
+      <div class="day-tabs" id="dispDayTabs"></div>
+
+      <!-- Slots -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3 id="dispTitle">Disponibilidad</h3>
+          <button class="btn btn-small btn-success" onclick="toggleAllDisp()" id="dispToggleAllBtn">Marcar todo</button>
+        </div>
+        <div class="section-body" id="dispSlotsList"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- VIEW: Profile -->
   <div id="viewProfile" class="app-content hidden">
     <div class="profile-header" style="margin-top:8px">
@@ -1088,6 +1115,10 @@
     <button class="nav-item active" onclick="switchView('booking')" id="navBooking">
       <span class="nav-icon">&#128197;</span>
       <span class="nav-label">Reservar</span>
+    </button>
+    <button class="nav-item" onclick="switchView('disponible')" id="navDisponible">
+      <span class="nav-icon">&#128994;</span>
+      <span class="nav-label">Disponible</span>
     </button>
     <button class="nav-item" onclick="switchView('profile')" id="navProfile">
       <span class="nav-icon">&#128100;</span>
@@ -1295,11 +1326,14 @@ async function refreshAll() {
 
 function switchView(view) {
   document.getElementById('viewBooking').classList.toggle('hidden', view !== 'booking');
+  document.getElementById('viewDisponible').classList.toggle('hidden', view !== 'disponible');
   document.getElementById('viewProfile').classList.toggle('hidden', view !== 'profile');
   document.getElementById('navBooking').classList.toggle('active', view === 'booking');
+  document.getElementById('navDisponible').classList.toggle('active', view === 'disponible');
   document.getElementById('navProfile').classList.toggle('active', view === 'profile');
 
   if (view === 'booking') renderWeek();
+  if (view === 'disponible') renderDisp();
   if (view === 'profile') renderProfile();
 }
 
@@ -1999,6 +2033,113 @@ async function pairRespond(reservaId, action) {
     toast('Propuesta rechazada', 'success');
   }
   await renderWeek();
+}
+
+// =============================================
+// DISPONIBILIDAD
+// =============================================
+let dispWeekOff = 0;
+let dispSelectedDay = 0;
+let dispData = []; // current week availability
+
+function changeDispWeek(d) { dispWeekOff += d; renderDisp(); }
+
+async function renderDisp() {
+  const dates = getWeekDates(dispWeekOff);
+  const ws = fmtDate(dates[0]), we = fmtDate(dates[4]);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = fmtDate(today);
+
+  // Week label
+  const sameMo = dates[0].getMonth() === dates[4].getMonth();
+  document.getElementById('dispWeekLabel').textContent = sameMo
+    ? `${dates[0].getDate()} - ${dates[4].getDate()} ${MONTHS[dates[0].getMonth()]}`
+    : `${dates[0].getDate()} ${MONTHS_SHORT[dates[0].getMonth()]} - ${dates[4].getDate()} ${MONTHS_SHORT[dates[4].getMonth()]}`;
+
+  // Load my availability
+  const {data} = await sb.from('ae_disponibilidad').select('*')
+    .eq('alumno_id', currentUser.id).gte('fecha', ws).lte('fecha', we);
+  dispData = data || [];
+
+  // Day tabs
+  document.getElementById('dispDayTabs').innerHTML = dates.map((dt, i) => {
+    const isPast = dt < today;
+    const isToday = fmtDate(dt) === todayStr;
+    const count = dispData.filter(d => d.fecha === fmtDate(dt)).length;
+    return `
+      <div class="day-tab ${i===dispSelectedDay?'active':''} ${isToday?'today':''}"
+           onclick="${isPast?'':'dispSelectDay('+i+')'}" style="${isPast?'opacity:0.3;pointer-events:none':''}">
+        <div class="dt-name">${DAYS_SHORT[i]}</div>
+        <div class="dt-number">${dt.getDate()}</div>
+        <div class="dt-info">${count > 0 ? count + ' marcadas' : '-'}</div>
+      </div>`;
+  }).join('');
+
+  renderDispSlots(dates);
+}
+
+function dispSelectDay(i) { dispSelectedDay = i; renderDisp(); }
+
+function renderDispSlots(dates) {
+  const date = dates[dispSelectedDay];
+  const dateStr = fmtDate(date);
+  const dur = parseInt(cfg.duracion_clase_min || '45');
+  const daySlots = slots.filter(s => s.dia_semana === dispSelectedDay);
+  const myDisp = new Set(dispData.filter(d => d.fecha === dateStr).map(d => d.hora_inicio.slice(0,5)));
+
+  document.getElementById('dispTitle').textContent =
+    `${DAYS[dispSelectedDay]} ${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
+
+  // Toggle all button text
+  const allMarked = daySlots.length > 0 && daySlots.every(s => myDisp.has(s.hora_inicio.slice(0,5)));
+  document.getElementById('dispToggleAllBtn').textContent = allMarked ? 'Desmarcar todo' : 'Marcar todo';
+  document.getElementById('dispToggleAllBtn').setAttribute('onclick', `toggleAllDisp('${dateStr}',${allMarked})`);
+
+  document.getElementById('dispSlotsList').innerHTML = daySlots.map(slot => {
+    const t = slot.hora_inicio.slice(0,5);
+    const end = addMins(t, dur);
+    const isMarked = myDisp.has(t);
+
+    return `
+      <div class="slot-item ${isMarked ? 'available' : ''}" style="cursor:pointer;${isMarked?'':'background:#f8fafc;border-color:var(--border)'}" onclick="toggleDisp('${dateStr}','${slot.hora_inicio}','${t}')">
+        <div class="slot-left">
+          <div class="slot-time-badge"><div class="time">${t}</div><div class="end-time">${end}</div></div>
+          <div class="slot-separator" style="background:${isMarked?'var(--success)':'var(--border)'}"></div>
+          <div class="slot-info">
+            <div class="slot-status-text" style="color:${isMarked?'var(--success)':'var(--text-muted)'}">${isMarked ? 'Disponible' : 'No marcada'}</div>
+            <div class="slot-detail">${dur} min</div>
+          </div>
+        </div>
+        <div style="width:32px;height:32px;border-radius:8px;border:2px solid ${isMarked?'var(--success)':'var(--border)'};background:${isMarked?'var(--success)':'white'};display:flex;align-items:center;justify-content:center;color:white;font-size:0.9rem">${isMarked?'&#10003;':''}</div>
+      </div>`;
+  }).join('');
+}
+
+async function toggleDisp(fecha, horaFull, horaShort) {
+  const existing = dispData.find(d => d.fecha === fecha && d.hora_inicio.slice(0,5) === horaShort);
+  if (existing) {
+    await sb.from('ae_disponibilidad').delete().eq('id', existing.id);
+  } else {
+    await sb.from('ae_disponibilidad').insert({ alumno_id: currentUser.id, fecha, hora_inicio: horaFull });
+  }
+  await renderDisp();
+}
+
+async function toggleAllDisp(fecha, allMarked) {
+  const daySlots = slots.filter(s => s.dia_semana === dispSelectedDay);
+  if (allMarked) {
+    // Unmark all
+    await sb.from('ae_disponibilidad').delete().eq('alumno_id', currentUser.id).eq('fecha', fecha);
+  } else {
+    // Mark all
+    for (const slot of daySlots) {
+      await sb.from('ae_disponibilidad').upsert(
+        { alumno_id: currentUser.id, fecha, hora_inicio: slot.hora_inicio },
+        { onConflict: 'alumno_id,fecha,hora_inicio' }
+      );
+    }
+  }
+  await renderDisp();
 }
 
 // PROFILE
