@@ -2,386 +2,757 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Autoescuela - Reserva tu clase</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e40af">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --success: #16a34a;
+      --primary: #1e40af;
+      --primary-light: #3b82f6;
+      --primary-bg: #eff6ff;
+      --success: #059669;
+      --success-bg: #ecfdf5;
       --danger: #dc2626;
-      --warning: #f59e0b;
-      --bg: #f8fafc;
+      --danger-bg: #fef2f2;
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --bg: #f1f5f9;
       --card: #ffffff;
-      --text: #1e293b;
-      --text-light: #64748b;
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
       --border: #e2e8f0;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
+      --radius: 14px;
+      --radius-sm: 10px;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* HEADER */
-    .header {
-      background: var(--primary);
-      color: white;
-      padding: 16px 20px;
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+    .fade-in { animation: fadeIn 0.3s ease; }
+    .slide-up { animation: slideUp 0.4s ease; }
+
+    /* ===== LOGIN SCREEN ===== */
+    .login-screen {
+      min-height: 100vh;
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 30%, #2563eb 70%, #3b82f6 100%);
+    }
+    .login-hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .header h1 { font-size: 1.2rem; }
-    .header .user-info { font-size: 0.85rem; opacity: 0.9; }
-    .header button {
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.3);
+      justify-content: center;
+      padding: 40px 24px 20px;
       color: white;
-      padding: 6px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-    }
-
-    /* LOGIN */
-    .login-container {
-      max-width: 400px;
-      margin: 60px auto;
-      padding: 20px;
-    }
-    .login-card {
-      background: var(--card);
-      border-radius: 16px;
-      padding: 40px 30px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
       text-align: center;
     }
-    .login-card .icon {
-      font-size: 3rem;
-      margin-bottom: 16px;
-    }
-    .login-card h2 {
-      margin-bottom: 8px;
-      font-size: 1.5rem;
-    }
-    .login-card p {
-      color: var(--text-light);
-      margin-bottom: 24px;
-      font-size: 0.9rem;
-    }
-    .form-group {
-      margin-bottom: 16px;
-      text-align: left;
-    }
-    .form-group label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-bottom: 6px;
-      color: var(--text-light);
-    }
-    .form-group input {
-      width: 100%;
-      padding: 12px 14px;
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      font-size: 1rem;
-      transition: border-color 0.2s;
-    }
-    .form-group input:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-danger {
-      background: var(--danger);
-      color: white;
-    }
-    .btn-small {
-      width: auto;
-      padding: 8px 16px;
-      font-size: 0.8rem;
-    }
-
-    /* BOOKING VIEW */
-    .booking-container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-
-    /* Week navigation */
-    .week-nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      background: var(--card);
-      border-radius: 12px;
-      padding: 12px 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    .week-nav button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      font-size: 1.1rem;
-      cursor: pointer;
+    .login-hero .logo {
+      width: 80px;
+      height: 80px;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
     }
-    .week-nav button:disabled {
-      background: var(--border);
-      color: var(--text-light);
-      cursor: not-allowed;
+    .login-hero h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
     }
-    .week-nav .week-label {
-      font-weight: 600;
+    .login-hero p {
+      opacity: 0.8;
       font-size: 0.95rem;
     }
 
-    /* Stats bar */
-    .stats-bar {
+    .login-form-container {
+      background: white;
+      border-radius: 24px 24px 0 0;
+      padding: 32px 24px 40px;
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
+    }
+    .login-form-container h2 {
+      font-size: 1.3rem;
+      margin-bottom: 4px;
+    }
+    .login-form-container .subtitle {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 24px;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+    .input-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .input-group .input-wrapper {
+      position: relative;
+    }
+    .input-group .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.1rem;
+      opacity: 0.4;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 14px 14px 14px 44px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.2s;
+      background: #f8fafc;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--primary-light);
+      background: white;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 24px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      width: 100%;
+    }
+    .btn-primary:hover { background: #1e3a8a; }
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 2px solid var(--border);
+    }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-small { padding: 8px 14px; font-size: 0.8rem; }
+    .btn-ghost {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 8px;
+    }
+
+    .login-footer {
       display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+    .login-footer a {
+      color: var(--primary-light);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    /* ===== REGISTER FORM ===== */
+    .register-section {
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      margin-top: 16px;
+    }
+
+    /* ===== HEADER / NAV ===== */
+    .app-header {
+      background: linear-gradient(135deg, #1e3a8a, #1e40af);
+      color: white;
+      padding: 16px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .app-header-inner {
+      max-width: 600px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .app-header .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .app-header .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+    .app-header .brand-text h1 {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .app-header .brand-text span {
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-btn {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    .header-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* ===== MAIN CONTENT ===== */
+    .app-content {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+      padding-bottom: 90px;
+    }
+
+    /* ===== AVISO BANNER ===== */
+    .aviso-banner {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border: 1px solid #f59e0b;
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      animation: fadeIn 0.4s ease;
+    }
+    .aviso-banner .aviso-icon { font-size: 1.2rem; }
+    .aviso-banner .aviso-text {
+      font-size: 0.85rem;
+      color: #92400e;
+      line-height: 1.4;
+    }
+    .aviso-banner .aviso-title {
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    /* ===== STATS ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
       margin-bottom: 16px;
     }
     .stat-card {
-      flex: 1;
       background: var(--card);
-      border-radius: 12px;
-      padding: 14px;
+      border-radius: var(--radius);
+      padding: 16px 12px;
       text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      box-shadow: var(--shadow);
+      transition: transform 0.2s;
     }
-    .stat-card .number {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--primary);
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-number {
+      font-size: 1.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    .stat-card .label {
-      font-size: 0.75rem;
-      color: var(--text-light);
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       margin-top: 2px;
+      font-weight: 600;
+    }
+    .stat-card.warning .stat-number {
+      background: linear-gradient(135deg, var(--warning), #f59e0b);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    .stat-card.success .stat-number {
+      background: linear-gradient(135deg, var(--success), #10b981);
+      -webkit-background-clip: text;
+      background-clip: text;
     }
 
-    /* Day tabs */
-    .day-tabs {
+    /* ===== WEEK NAV ===== */
+    .week-nav {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .week-nav-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      color: var(--text);
+    }
+    .week-nav-btn:hover { border-color: var(--primary-light); color: var(--primary); }
+    .week-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .week-nav-label {
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .week-nav-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ===== DAY TABS ===== */
+    .day-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
       gap: 6px;
       margin-bottom: 16px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
     }
     .day-tab {
-      flex: 1;
-      min-width: 0;
       background: var(--card);
-      border: 2px solid var(--border);
-      border-radius: 12px;
+      border: 2px solid transparent;
+      border-radius: var(--radius-sm);
       padding: 10px 4px;
       text-align: center;
       cursor: pointer;
       transition: all 0.2s;
+      box-shadow: var(--shadow);
     }
+    .day-tab:hover { border-color: var(--primary-light); }
     .day-tab.active {
-      border-color: var(--primary);
       background: var(--primary);
       color: white;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
     }
-    .day-tab .day-name {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
+    .day-tab.today:not(.active) {
+      border-color: var(--warning);
     }
-    .day-tab .day-number {
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-top: 2px;
+    .day-tab.blocked {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: #f1f5f9;
     }
-    .day-tab .day-slots {
+    .day-tab .dt-name {
       font-size: 0.65rem;
-      margin-top: 2px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .day-tab .dt-number {
+      font-size: 1.3rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .day-tab .dt-info {
+      font-size: 0.6rem;
       opacity: 0.7;
+      margin-top: 2px;
     }
-    .day-tab.today { border-color: var(--warning); }
-    .day-tab.today.active { border-color: var(--primary); }
 
-    /* Slots grid */
-    .slots-section {
+    /* ===== SECTION CARD ===== */
+    .section-card {
       background: var(--card);
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+      overflow: hidden;
     }
-    .slots-section h3 {
-      font-size: 0.9rem;
-      color: var(--text-light);
-      margin-bottom: 12px;
+    .section-header {
+      padding: 16px 18px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
     }
+    .section-header h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .section-body {
+      padding: 10px;
+    }
+
+    /* ===== SLOT ITEMS ===== */
     .slot-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 14px 16px;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      margin-bottom: 8px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
       transition: all 0.2s;
+      border: 2px solid transparent;
     }
-    .slot-item .time {
-      font-weight: 700;
+    .slot-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .slot-time-badge {
+      min-width: 52px;
+      text-align: center;
+    }
+    .slot-time-badge .time {
       font-size: 1rem;
+      font-weight: 800;
+      line-height: 1.1;
     }
-    .slot-item .duration {
-      font-size: 0.75rem;
-      color: var(--text-light);
+    .slot-time-badge .end-time {
+      font-size: 0.65rem;
+      color: var(--text-muted);
     }
-    .slot-item .status {
-      font-size: 0.8rem;
+    .slot-separator {
+      width: 3px;
+      height: 36px;
+      border-radius: 2px;
+      background: var(--border);
+    }
+    .slot-info .slot-status-text {
+      font-size: 0.85rem;
       font-weight: 600;
-      padding: 6px 14px;
-      border-radius: 8px;
     }
-    .slot-item.available {
+    .slot-info .slot-detail {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .slot-action-btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
       cursor: pointer;
-      border-color: #bbf7d0;
-      background: #f0fdf4;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .slot-action-btn:active { transform: scale(0.95); }
+
+    /* Available */
+    .slot-item.available {
+      background: var(--success-bg);
+      border-color: #a7f3d0;
+      cursor: pointer;
     }
     .slot-item.available:hover {
       border-color: var(--success);
-      transform: translateY(-1px);
+      transform: translateX(4px);
     }
-    .slot-item.available .status {
+    .slot-item.available .slot-separator { background: var(--success); }
+    .slot-item.available .slot-status-text { color: var(--success); }
+    .slot-item.available .slot-action-btn {
       background: var(--success);
       color: white;
     }
-    .slot-item.booked {
-      background: #fef2f2;
-      border-color: #fecaca;
-    }
-    .slot-item.booked .status {
-      background: var(--danger);
-      color: white;
-      cursor: pointer;
-    }
+
+    /* Mine */
     .slot-item.mine {
-      background: #eff6ff;
+      background: var(--primary-bg);
       border-color: #93c5fd;
     }
-    .slot-item.mine .status {
+    .slot-item.mine .slot-separator { background: var(--primary); }
+    .slot-item.mine .slot-status-text { color: var(--primary); }
+
+    .mine-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .mine-badge {
       background: var(--primary);
       color: white;
-    }
-    .slot-item.mine .cancel-btn {
-      background: var(--danger);
-      color: white;
-      border: none;
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 8px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      margin-left: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
     }
-    .slot-item.past {
-      opacity: 0.5;
-      background: #f1f5f9;
-    }
-    .slot-item.past .status {
-      background: var(--border);
-      color: var(--text-light);
-    }
-
-    .slot-booked-name {
-      font-size: 0.7rem;
-      color: var(--text-light);
-    }
-
-    /* Mis reservas */
-    .my-bookings {
-      margin-top: 16px;
-      background: var(--card);
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    .my-bookings h3 {
+    .cancel-x {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 2px solid #fca5a5;
+      background: #fef2f2;
+      color: var(--danger);
       font-size: 0.9rem;
-      color: var(--text-light);
-      margin-bottom: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
     }
-    .booking-item {
+    .cancel-x:hover { background: var(--danger); color: white; border-color: var(--danger); }
+
+    /* Booked */
+    .slot-item.booked {
+      background: #fafafa;
+      border-color: var(--border);
+    }
+    .slot-item.booked .slot-separator { background: #d1d5db; }
+    .slot-item.booked .slot-status-text { color: var(--text-muted); }
+
+    .slot-booked-badge {
+      background: #f1f5f9;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* Waitlist */
+    .slot-waitlist-btn {
+      padding: 6px 12px;
+      border: 2px solid var(--warning);
+      background: var(--warning-bg);
+      color: var(--warning);
+      border-radius: 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* Past */
+    .slot-item.past {
+      opacity: 0.4;
+      background: #f8fafc;
+    }
+    .slot-item.past .slot-separator { background: #e2e8f0; }
+
+    /* Limit reached */
+    .slot-item.limit-reached {
+      background: var(--warning-bg);
+      border-color: #fde68a;
+    }
+    .slot-item.limit-reached .slot-separator { background: var(--warning); }
+
+    /* ===== MY BOOKINGS ===== */
+    .my-booking-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px;
-      background: #eff6ff;
-      border-radius: 10px;
-      margin-bottom: 8px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      margin-bottom: 6px;
     }
-    .booking-item .info {
-      font-weight: 600;
-      font-size: 0.9rem;
+    .my-booking-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .booking-item .sub {
-      font-size: 0.75rem;
-      color: var(--text-light);
-    }
-
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: var(--text);
+    .my-booking-day {
+      width: 44px;
+      height: 44px;
+      background: var(--primary);
       color: white;
-      padding: 14px 24px;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      z-index: 1000;
-      transition: transform 0.3s ease;
-      max-width: 90%;
-      text-align: center;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      line-height: 1;
     }
-    .toast.show { transform: translateX(-50%) translateY(0); }
-    .toast.error { background: var(--danger); }
-    .toast.success { background: var(--success); }
+    .my-booking-day .mbd-day { font-size: 0.55rem; text-transform: uppercase; }
+    .my-booking-day .mbd-num { font-size: 1.1rem; }
+    .my-booking-info .mbi-time { font-weight: 700; font-size: 0.9rem; }
+    .my-booking-info .mbi-detail { font-size: 0.75rem; color: var(--text-muted); }
 
-    /* Modal */
+    .empty-state {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .empty-icon { font-size: 2rem; margin-bottom: 8px; opacity: 0.5; }
+    .empty-state .empty-text { font-size: 0.85rem; }
+
+    /* ===== BOTTOM NAV ===== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      z-index: 50;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 16px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-family: inherit;
+      transition: color 0.2s;
+    }
+    .nav-item.active { color: var(--primary); }
+    .nav-item .nav-icon { font-size: 1.3rem; }
+    .nav-item .nav-label { font-size: 0.65rem; font-weight: 600; }
+
+    /* ===== PROFILE VIEW ===== */
+    .profile-header {
+      text-align: center;
+      padding: 30px 20px;
+      background: linear-gradient(135deg, #1e3a8a, #2563eb);
+      border-radius: var(--radius);
+      color: white;
+      margin-bottom: 16px;
+    }
+    .profile-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 12px;
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+    .profile-name { font-size: 1.3rem; font-weight: 800; }
+    .profile-phone { opacity: 0.8; font-size: 0.9rem; margin-top: 4px; }
+
+    .profile-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 16px 0;
+    }
+    .profile-stat {
+      background: var(--card);
+      border-radius: var(--radius-sm);
+      padding: 16px 10px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .profile-stat .ps-num { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+    .profile-stat .ps-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-left { display: flex; align-items: center; gap: 12px; }
+    .history-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .history-dot.cancelled { background: var(--danger); }
+    .history-date { font-weight: 600; font-size: 0.85rem; }
+    .history-time { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ===== MODAL ===== */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
       display: none;
-      align-items: center;
+      align-items: flex-end;
       justify-content: center;
       z-index: 100;
       padding: 20px;
@@ -389,590 +760,868 @@
     .modal-overlay.active { display: flex; }
     .modal {
       background: var(--card);
-      border-radius: 16px;
-      padding: 30px;
-      max-width: 360px;
+      border-radius: 20px;
+      padding: 28px 24px;
       width: 100%;
-      text-align: center;
+      max-width: 380px;
+      animation: slideUp 0.3s ease;
     }
-    .modal h3 { margin-bottom: 8px; }
-    .modal p {
-      color: var(--text-light);
-      margin-bottom: 20px;
-      font-size: 0.9rem;
-    }
-    .modal .modal-buttons {
+    .modal-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
       display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin: 0 auto 16px;
+    }
+    .modal-icon.confirm { background: var(--success-bg); }
+    .modal-icon.cancel { background: var(--danger-bg); }
+    .modal h3 {
+      text-align: center;
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+    }
+    .modal .modal-msg {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+    .modal-btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
-    .modal .modal-buttons button {
-      flex: 1;
-      padding: 12px;
-      border: none;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-    }
-    .modal .btn-cancel-modal {
-      background: var(--border);
-      color: var(--text);
-    }
-    .modal .btn-confirm {
-      background: var(--primary);
-      color: white;
-    }
-    .modal .btn-confirm.danger {
-      background: var(--danger);
-    }
+    .modal-btns .btn { width: 100%; }
 
-    /* Loading */
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--text-light);
+    /* ===== TOAST ===== */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      width: 90%;
+      max-width: 400px;
+    }
+    .toast {
+      background: var(--text);
+      color: white;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideUp 0.3s ease;
+      pointer-events: auto;
+    }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    .toast .toast-icon { font-size: 1.1rem; }
+
+    /* ===== LOADING ===== */
+    .skeleton {
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
     }
     .spinner {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       border: 3px solid var(--border);
       border-top-color: var(--primary);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
-      margin: 0 auto 12px;
+      margin: 20px auto;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
     .hidden { display: none !important; }
 
-    /* Admin link */
-    .admin-link {
-      text-align: center;
-      margin-top: 20px;
-      padding-bottom: 30px;
-    }
-    .admin-link a {
-      color: var(--text-light);
-      font-size: 0.8rem;
-      text-decoration: none;
+    /* Desktop tweaks */
+    @media (min-width: 640px) {
+      .login-screen { flex-direction: row; }
+      .login-hero { flex: 1; border-radius: 0; }
+      .login-form-container {
+        flex: 1;
+        max-width: 440px;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 48px 40px;
+      }
+      .modal-overlay { align-items: center; }
     }
   </style>
 </head>
 <body>
 
-  <!-- LOGIN SCREEN -->
-  <div id="loginScreen">
-    <div class="login-container">
-      <div class="login-card">
-        <div class="icon">&#128663;</div>
-        <h2>Autoescuela</h2>
-        <p>Reserva tus clases de conducir</p>
-        <div class="form-group">
-          <label>Telefono</label>
-          <input type="tel" id="loginPhone" placeholder="612 345 678" maxlength="15">
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-hero">
+    <div class="logo">&#128663;</div>
+    <h1 id="brandName">Mi Autoescuela</h1>
+    <p>Reserva tus clases online</p>
+  </div>
+  <div class="login-form-container">
+    <!-- Login form -->
+    <div id="loginForm">
+      <h2>Bienvenido</h2>
+      <p class="subtitle">Introduce tus datos para acceder</p>
+      <div class="input-group">
+        <label>Telefono</label>
+        <div class="input-wrapper">
+          <span class="input-icon">&#128222;</span>
+          <input type="tel" id="loginPhone" placeholder="612 345 678" maxlength="15" autocomplete="tel">
         </div>
-        <div class="form-group">
-          <label>PIN</label>
+      </div>
+      <div class="input-group">
+        <label>PIN</label>
+        <div class="input-wrapper">
+          <span class="input-icon">&#128274;</span>
           <input type="password" id="loginPin" placeholder="****" maxlength="6" inputmode="numeric">
         </div>
-        <button class="btn btn-primary" onclick="login()">Entrar</button>
       </div>
-      <div class="admin-link">
-        <a href="admin.html">Acceso administrador</a>
+      <button class="btn btn-primary" onclick="login()" id="loginBtn">Acceder</button>
+      <div class="login-footer">
+        <a href="#" onclick="showRegister(); return false" id="registerLink" class="hidden">Registrarme</a>
+        <a href="admin.html">Panel admin</a>
+      </div>
+    </div>
+
+    <!-- Register form -->
+    <div id="registerForm" class="hidden">
+      <h2>Crear cuenta</h2>
+      <p class="subtitle">Registrate para reservar tus clases</p>
+      <div class="input-group">
+        <label>Nombre completo</label>
+        <div class="input-wrapper">
+          <span class="input-icon">&#128100;</span>
+          <input type="text" id="regName" placeholder="Tu nombre" autocomplete="name">
+        </div>
+      </div>
+      <div class="input-group">
+        <label>Telefono</label>
+        <div class="input-wrapper">
+          <span class="input-icon">&#128222;</span>
+          <input type="tel" id="regPhone" placeholder="612 345 678" autocomplete="tel">
+        </div>
+      </div>
+      <div class="input-group">
+        <label>Elige un PIN (4 digitos)</label>
+        <div class="input-wrapper">
+          <span class="input-icon">&#128274;</span>
+          <input type="password" id="regPin" placeholder="1234" maxlength="6" inputmode="numeric">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="register()">Crear cuenta</button>
+      <div class="login-footer">
+        <a href="#" onclick="showLogin(); return false">Ya tengo cuenta</a>
+        <a href="admin.html">Panel admin</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APP SCREEN ===== -->
+<div id="appScreen" class="hidden">
+  <div class="app-header">
+    <div class="app-header-inner">
+      <div class="brand">
+        <div class="brand-icon">&#128663;</div>
+        <div class="brand-text">
+          <h1 id="appBrandName">Mi Autoescuela</h1>
+          <span id="appUserName"></span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" onclick="renderWeek()" title="Actualizar">&#8635;</button>
       </div>
     </div>
   </div>
 
-  <!-- BOOKING SCREEN -->
-  <div id="bookingScreen" class="hidden">
-    <div class="header">
-      <div>
-        <h1>&#128663; Autoescuela</h1>
-        <div class="user-info" id="userName"></div>
+  <!-- VIEW: Reservas -->
+  <div id="viewBooking" class="app-content">
+    <!-- Avisos -->
+    <div id="avisosContainer" style="margin-top:8px"></div>
+
+    <!-- Stats -->
+    <div class="stats-row" style="margin-top:8px">
+      <div class="stat-card">
+        <div class="stat-number" id="statBooked">0</div>
+        <div class="stat-label">Reservadas</div>
       </div>
-      <button onclick="logout()">Salir</button>
+      <div class="stat-card success">
+        <div class="stat-number" id="statRemaining">2</div>
+        <div class="stat-label">Disponibles</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-number" id="statTotal">0</div>
+        <div class="stat-label">Historial</div>
+      </div>
     </div>
 
-    <div class="booking-container">
-      <!-- Stats -->
-      <div class="stats-bar" style="margin-top:16px">
-        <div class="stat-card">
-          <div class="number" id="statBooked">0</div>
-          <div class="label">Reservadas</div>
-        </div>
-        <div class="stat-card">
-          <div class="number" id="statRemaining">2</div>
-          <div class="label">Disponibles</div>
-        </div>
-        <div class="stat-card">
-          <div class="number" id="statTotal">0</div>
-          <div class="label">Total historial</div>
-        </div>
+    <!-- Week nav -->
+    <div class="week-nav">
+      <button class="week-nav-btn" id="prevWeek" onclick="changeWeek(-1)">&#9664;</button>
+      <div style="text-align:center">
+        <div class="week-nav-label" id="weekLabel"></div>
+        <div class="week-nav-sub" id="weekSub"></div>
       </div>
+      <button class="week-nav-btn" id="nextWeek" onclick="changeWeek(1)">&#9654;</button>
+    </div>
 
-      <!-- Week nav -->
-      <div class="week-nav">
-        <button id="prevWeek" onclick="changeWeek(-1)">&#9664;</button>
-        <span class="week-label" id="weekLabel">Semana actual</span>
-        <button id="nextWeek" onclick="changeWeek(1)">&#9654;</button>
-      </div>
+    <!-- Day tabs -->
+    <div class="day-tabs" id="dayTabs"></div>
 
-      <!-- Day tabs -->
-      <div class="day-tabs" id="dayTabs"></div>
-
-      <!-- Slots -->
-      <div class="slots-section">
-        <h3 id="slotsTitle">Horarios disponibles</h3>
-        <div id="slotsList">
-          <div class="loading">
-            <div class="spinner"></div>
-            Cargando horarios...
-          </div>
+    <!-- Blocked day message -->
+    <div id="blockedDayMsg" class="hidden">
+      <div class="section-card">
+        <div class="empty-state" style="padding:40px">
+          <div class="empty-icon">&#128683;</div>
+          <div class="empty-text" style="font-weight:600;color:var(--danger)">Dia bloqueado</div>
+          <div class="empty-text" id="blockedReason" style="margin-top:4px"></div>
         </div>
       </div>
+    </div>
 
-      <!-- My bookings this week -->
-      <div class="my-bookings">
-        <h3>Mis reservas esta semana</h3>
-        <div id="myBookingsList"></div>
+    <!-- Slots -->
+    <div id="slotsContainer">
+      <div class="section-card">
+        <div class="section-header">
+          <h3 id="slotsTitle">Horarios</h3>
+          <span id="slotsCount" style="font-size:0.8rem;color:var(--text-muted)"></span>
+        </div>
+        <div class="section-body" id="slotsList">
+          <div class="spinner"></div>
+        </div>
       </div>
+    </div>
+
+    <!-- My bookings this week -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3>&#128197; Mis reservas</h3>
+      </div>
+      <div class="section-body" id="myBookingsList"></div>
     </div>
   </div>
 
-  <!-- CONFIRM MODAL -->
-  <div class="modal-overlay" id="confirmModal">
-    <div class="modal">
-      <h3 id="modalTitle">Confirmar reserva</h3>
-      <p id="modalMessage"></p>
-      <div class="modal-buttons">
-        <button class="btn-cancel-modal" onclick="closeModal()">Cancelar</button>
-        <button class="btn-confirm" id="modalConfirmBtn" onclick="modalConfirmAction()">Confirmar</button>
+  <!-- VIEW: Profile -->
+  <div id="viewProfile" class="app-content hidden">
+    <div class="profile-header" style="margin-top:8px">
+      <div class="profile-avatar">&#128100;</div>
+      <div class="profile-name" id="profileName"></div>
+      <div class="profile-phone" id="profilePhone"></div>
+    </div>
+    <div class="profile-stats">
+      <div class="profile-stat">
+        <div class="ps-num" id="profileTotal">0</div>
+        <div class="ps-label">Clases totales</div>
       </div>
+      <div class="profile-stat">
+        <div class="ps-num" id="profileThisWeek">0</div>
+        <div class="ps-label">Esta semana</div>
+      </div>
+      <div class="profile-stat">
+        <div class="ps-num" id="profileCancelled">0</div>
+        <div class="ps-label">Canceladas</div>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Historial de clases</h3>
+      </div>
+      <div class="section-body" id="historyList" style="padding:0"></div>
+    </div>
+    <div style="padding:20px;text-align:center">
+      <button class="btn btn-outline" onclick="logout()" style="color:var(--danger);border-color:#fca5a5">
+        Cerrar sesion
+      </button>
     </div>
   </div>
 
-  <!-- TOAST -->
-  <div class="toast" id="toast"></div>
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <button class="nav-item active" onclick="switchView('booking')" id="navBooking">
+      <span class="nav-icon">&#128197;</span>
+      <span class="nav-label">Reservar</span>
+    </button>
+    <button class="nav-item" onclick="switchView('profile')" id="navProfile">
+      <span class="nav-icon">&#128100;</span>
+      <span class="nav-label">Perfil</span>
+    </button>
+  </div>
+</div>
 
-  <script>
-    // ==========================================
-    // CONFIG
-    // ==========================================
-    const SUPABASE_URL = 'https://uwcldzuyvkoecnmcprle.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y2xkenV5dmtvZWNubWNwcmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NzE3NTQsImV4cCI6MjA4MjM0Nzc1NH0.XU8WPZgZlMht3f5G2Ui4_R230Trb6p3BLdwRJbp2Eyg';
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-icon" id="modalIcon">&#9989;</div>
+    <h3 id="modalTitle"></h3>
+    <p class="modal-msg" id="modalMsg"></p>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn" id="modalConfirmBtn" onclick="modalAction()">Confirmar</button>
+    </div>
+  </div>
+</div>
 
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<!-- ===== TOASTS ===== -->
+<div class="toast-container" id="toastContainer"></div>
 
-    const DAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
-    const DAYS_SHORT = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'];
+<script>
+// =============================================
+// CONFIG
+// =============================================
+const SUPABASE_URL = 'https://uwcldzuyvkoecnmcprle.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y2xkenV5dmtvZWNubWNwcmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NzE3NTQsImV4cCI6MjA4MjM0Nzc1NH0.XU8WPZgZlMht3f5G2Ui4_R230Trb6p3BLdwRJbp2Eyg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let currentUser = null;
-    let currentWeekOffset = 0;
-    let selectedDay = 0;
-    let slots = [];
-    let weekReservas = [];
-    let allConfig = {};
-    let pendingAction = null;
+const DAYS = ['Lunes','Martes','Miercoles','Jueves','Viernes'];
+const DAYS_SHORT = ['LUN','MAR','MIE','JUE','VIE'];
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-    // ==========================================
-    // INIT
-    // ==========================================
-    async function init() {
-      // Load config
-      const { data } = await sb.from('ae_config').select('*');
-      if (data) data.forEach(r => allConfig[r.key] = r.value);
+let currentUser = null;
+let weekOffset = 0;
+let selectedDay = 0;
+let slots = [];
+let weekReservas = [];
+let blockedDays = [];
+let cfg = {};
+let pendingFn = null;
 
-      // Load slots
-      const { data: s } = await sb.from('ae_slots').select('*').eq('activo', true).order('hora_inicio');
-      if (s) slots = s;
+// =============================================
+// INIT
+// =============================================
+async function init() {
+  const { data: cfgData } = await sb.from('ae_config').select('*');
+  if (cfgData) cfgData.forEach(r => cfg[r.key] = r.value);
 
-      // Check saved session
-      const saved = localStorage.getItem('ae_user');
-      if (saved) {
-        try {
-          currentUser = JSON.parse(saved);
-          // Verify user still exists
-          const { data: u } = await sb.from('ae_alumnos').select('*').eq('id', currentUser.id).eq('activo', true).single();
-          if (u) {
-            currentUser = u;
-            showBookingScreen();
-            return;
-          }
-        } catch(e) {}
-        localStorage.removeItem('ae_user');
-      }
-    }
+  // Brand name
+  const name = cfg.nombre_autoescuela || 'Mi Autoescuela';
+  document.getElementById('brandName').textContent = name;
+  document.title = name + ' - Reserva tu clase';
 
-    init();
+  // Show register link if enabled
+  if (cfg.permitir_registro === 'true') {
+    document.getElementById('registerLink').classList.remove('hidden');
+  }
 
-    // ==========================================
-    // AUTH
-    // ==========================================
-    async function login() {
-      const phone = document.getElementById('loginPhone').value.replace(/\s/g, '');
-      const pin = document.getElementById('loginPin').value;
+  const { data: s } = await sb.from('ae_slots').select('*').eq('activo', true).order('hora_inicio');
+  if (s) slots = s;
 
-      if (!phone || !pin) return showToast('Introduce telefono y PIN', 'error');
+  // Check session
+  const saved = localStorage.getItem('ae_user');
+  if (saved) {
+    try {
+      const u = JSON.parse(saved);
+      const { data } = await sb.from('ae_alumnos').select('*').eq('id', u.id).eq('activo', true).single();
+      if (data) { currentUser = data; showApp(); return; }
+    } catch(e) {}
+    localStorage.removeItem('ae_user');
+  }
+}
+init();
 
-      const { data, error } = await sb
-        .from('ae_alumnos')
-        .select('*')
-        .eq('telefono', phone)
-        .eq('pin', pin)
-        .eq('activo', true)
-        .single();
+// =============================================
+// AUTH
+// =============================================
+function showRegister() {
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('registerForm').classList.remove('hidden');
+}
+function showLogin() {
+  document.getElementById('registerForm').classList.add('hidden');
+  document.getElementById('loginForm').classList.remove('hidden');
+}
 
-      if (error || !data) return showToast('Telefono o PIN incorrecto', 'error');
+async function login() {
+  const phone = document.getElementById('loginPhone').value.replace(/\s/g,'');
+  const pin = document.getElementById('loginPin').value;
+  if (!phone || !pin) return toast('Introduce telefono y PIN', 'error');
 
-      currentUser = data;
-      localStorage.setItem('ae_user', JSON.stringify(data));
-      showBookingScreen();
-    }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Accediendo...';
 
-    function logout() {
-      currentUser = null;
-      localStorage.removeItem('ae_user');
-      document.getElementById('loginScreen').classList.remove('hidden');
-      document.getElementById('bookingScreen').classList.add('hidden');
-      document.getElementById('loginPhone').value = '';
-      document.getElementById('loginPin').value = '';
-    }
+  const { data, error } = await sb.from('ae_alumnos').select('*')
+    .eq('telefono', phone).eq('pin', pin).eq('activo', true).single();
 
-    // Enter key on login
-    document.getElementById('loginPin').addEventListener('keypress', e => {
-      if (e.key === 'Enter') login();
-    });
-    document.getElementById('loginPhone').addEventListener('keypress', e => {
-      if (e.key === 'Enter') document.getElementById('loginPin').focus();
-    });
+  btn.disabled = false; btn.textContent = 'Acceder';
 
-    // ==========================================
-    // BOOKING SCREEN
-    // ==========================================
-    function showBookingScreen() {
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('bookingScreen').classList.remove('hidden');
-      document.getElementById('userName').textContent = currentUser.nombre;
+  if (error || !data) return toast('Telefono o PIN incorrecto', 'error');
+  currentUser = data;
+  localStorage.setItem('ae_user', JSON.stringify(data));
+  showApp();
+}
 
-      // Set to current week, find today's day
-      currentWeekOffset = 0;
-      const today = new Date();
-      const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
-      selectedDay = (dayOfWeek >= 1 && dayOfWeek <= 5) ? dayOfWeek - 1 : 0;
+async function register() {
+  const nombre = document.getElementById('regName').value.trim();
+  const telefono = document.getElementById('regPhone').value.replace(/\s/g,'');
+  const pin = document.getElementById('regPin').value.trim();
 
-      renderWeek();
-    }
+  if (!nombre || !telefono || !pin) return toast('Completa todos los campos', 'error');
+  if (pin.length < 4) return toast('El PIN debe tener al menos 4 digitos', 'error');
 
-    // ==========================================
-    // WEEK HELPERS
-    // ==========================================
-    function getWeekDates(offset) {
-      const now = new Date();
-      const monday = new Date(now);
-      const day = now.getDay();
-      const diff = day === 0 ? -6 : 1 - day;
-      monday.setDate(now.getDate() + diff + (offset * 7));
-      monday.setHours(0, 0, 0, 0);
+  const { data, error } = await sb.from('ae_alumnos').insert({ nombre, telefono, pin }).select().single();
+  if (error) {
+    if (error.message.includes('unique') || error.message.includes('duplicate'))
+      return toast('Ya existe una cuenta con ese telefono', 'error');
+    return toast('Error: ' + error.message, 'error');
+  }
 
-      const dates = [];
-      for (let i = 0; i < 5; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        dates.push(d);
-      }
-      return dates;
-    }
+  currentUser = data;
+  localStorage.setItem('ae_user', JSON.stringify(data));
+  toast('Cuenta creada correctamente', 'success');
+  showApp();
+}
 
-    function formatDate(d) {
-      return d.toISOString().split('T')[0];
-    }
+function logout() {
+  currentUser = null;
+  localStorage.removeItem('ae_user');
+  document.getElementById('appScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginPhone').value = '';
+  document.getElementById('loginPin').value = '';
+  showLogin();
+}
 
-    function changeWeek(dir) {
-      currentWeekOffset += dir;
-      selectedDay = 0;
-      renderWeek();
-    }
+// Enter key handlers
+document.getElementById('loginPin').addEventListener('keypress', e => { if(e.key==='Enter') login(); });
+document.getElementById('loginPhone').addEventListener('keypress', e => { if(e.key==='Enter') document.getElementById('loginPin').focus(); });
+document.getElementById('regPin').addEventListener('keypress', e => { if(e.key==='Enter') register(); });
 
-    // ==========================================
-    // RENDER
-    // ==========================================
-    async function renderWeek() {
-      const dates = getWeekDates(currentWeekOffset);
-      const weekStart = formatDate(dates[0]);
-      const weekEnd = formatDate(dates[4]);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+// =============================================
+// APP
+// =============================================
+function showApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appScreen').classList.remove('hidden');
+  document.getElementById('appBrandName').textContent = cfg.nombre_autoescuela || 'Mi Autoescuela';
+  document.getElementById('appUserName').textContent = currentUser.nombre;
 
-      // Disable prev button if showing current or past week
-      const currentMonday = getWeekDates(0)[0];
-      document.getElementById('prevWeek').disabled = dates[0] <= currentMonday;
-      // Limit to 3 weeks ahead
-      document.getElementById('nextWeek').disabled = currentWeekOffset >= 3;
+  weekOffset = 0;
+  const dow = new Date().getDay();
+  selectedDay = (dow >= 1 && dow <= 5) ? dow - 1 : 0;
+  switchView('booking');
+}
 
-      // Week label
-      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      document.getElementById('weekLabel').textContent =
-        `${dates[0].getDate()} ${monthNames[dates[0].getMonth()]} - ${dates[4].getDate()} ${monthNames[dates[4].getMonth()]}`;
+function switchView(view) {
+  document.getElementById('viewBooking').classList.toggle('hidden', view !== 'booking');
+  document.getElementById('viewProfile').classList.toggle('hidden', view !== 'profile');
+  document.getElementById('navBooking').classList.toggle('active', view === 'booking');
+  document.getElementById('navProfile').classList.toggle('active', view === 'profile');
 
-      // Load reservas for this week
-      const { data: reservas } = await sb
-        .from('ae_reservas')
-        .select('*, ae_alumnos(nombre)')
-        .gte('fecha', weekStart)
-        .lte('fecha', weekEnd)
-        .eq('estado', 'confirmada');
-      weekReservas = reservas || [];
+  if (view === 'booking') renderWeek();
+  if (view === 'profile') renderProfile();
+}
 
-      // Count user's bookings this week
-      const myBookings = weekReservas.filter(r => r.alumno_id === currentUser.id);
-      const maxPerWeek = parseInt(allConfig.max_clases_alumno_semana || '2');
-      document.getElementById('statBooked').textContent = myBookings.length;
-      document.getElementById('statRemaining').textContent = Math.max(0, maxPerWeek - myBookings.length);
+// =============================================
+// WEEK HELPERS
+// =============================================
+function getWeekDates(off) {
+  const now = new Date();
+  const mon = new Date(now);
+  const d = now.getDay();
+  mon.setDate(now.getDate() + (d === 0 ? -6 : 1 - d) + off * 7);
+  mon.setHours(0,0,0,0);
+  return Array.from({length:5}, (_, i) => {
+    const dt = new Date(mon);
+    dt.setDate(mon.getDate() + i);
+    return dt;
+  });
+}
+function fmtDate(d) { return d.toISOString().split('T')[0]; }
+function addMins(t, m) {
+  const [h,min] = t.split(':').map(Number);
+  const tot = h*60+min+m;
+  return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;
+}
 
-      // Total historical
-      const { count } = await sb
-        .from('ae_reservas')
-        .select('*', { count: 'exact', head: true })
-        .eq('alumno_id', currentUser.id)
-        .eq('estado', 'confirmada');
-      document.getElementById('statTotal').textContent = count || 0;
+function changeWeek(dir) {
+  weekOffset += dir;
+  selectedDay = 0;
+  renderWeek();
+}
 
-      // Render day tabs
-      const tabsHtml = dates.map((d, i) => {
-        const isToday = d.getTime() === today.getTime();
-        const dayReservas = weekReservas.filter(r => r.fecha === formatDate(d));
-        const daySlots = slots.filter(s => s.dia_semana === i);
-        const available = daySlots.length - dayReservas.length;
-        return `
-          <div class="day-tab ${i === selectedDay ? 'active' : ''} ${isToday ? 'today' : ''}"
-               onclick="selectDay(${i})">
-            <div class="day-name">${DAYS_SHORT[i]}</div>
-            <div class="day-number">${d.getDate()}</div>
-            <div class="day-slots">${available} libres</div>
+// =============================================
+// RENDER WEEK
+// =============================================
+async function renderWeek() {
+  const dates = getWeekDates(weekOffset);
+  const ws = fmtDate(dates[0]);
+  const we = fmtDate(dates[4]);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = fmtDate(today);
+
+  // Nav buttons
+  const curMon = getWeekDates(0)[0];
+  document.getElementById('prevWeek').disabled = dates[0] <= curMon;
+  document.getElementById('nextWeek').disabled = weekOffset >= 3;
+
+  // Week label
+  const sameMo = dates[0].getMonth() === dates[4].getMonth();
+  document.getElementById('weekLabel').textContent = sameMo
+    ? `${dates[0].getDate()} - ${dates[4].getDate()} ${MONTHS[dates[0].getMonth()]}`
+    : `${dates[0].getDate()} ${MONTHS_SHORT[dates[0].getMonth()]} - ${dates[4].getDate()} ${MONTHS_SHORT[dates[4].getMonth()]}`;
+  document.getElementById('weekSub').textContent =
+    weekOffset === 0 ? 'Semana actual' : (weekOffset === 1 ? 'Proxima semana' : `En ${weekOffset} semanas`);
+
+  // Fetch data
+  const [resReservas, resBlocked, resAvisos] = await Promise.all([
+    sb.from('ae_reservas').select('*, ae_alumnos(nombre)').gte('fecha', ws).lte('fecha', we).eq('estado', 'confirmada'),
+    sb.from('ae_dias_bloqueados').select('*').gte('fecha', ws).lte('fecha', we),
+    sb.from('ae_avisos').select('*').eq('activo', true).order('created_at', {ascending: false}).limit(3)
+  ]);
+
+  weekReservas = resReservas.data || [];
+  blockedDays = (resBlocked.data || []).map(b => b.fecha);
+  const blockedMap = {};
+  (resBlocked.data || []).forEach(b => blockedMap[b.fecha] = b.motivo);
+
+  // Avisos
+  const avisos = resAvisos.data || [];
+  document.getElementById('avisosContainer').innerHTML = avisos.map(a => `
+    <div class="aviso-banner">
+      <div class="aviso-icon">&#128227;</div>
+      <div class="aviso-text">
+        <div class="aviso-title">${esc(a.titulo)}</div>
+        ${esc(a.mensaje)}
+      </div>
+    </div>
+  `).join('');
+
+  // Stats
+  const myWeek = weekReservas.filter(r => r.alumno_id === currentUser.id);
+  const maxW = parseInt(cfg.max_clases_alumno_semana || '2');
+  document.getElementById('statBooked').textContent = myWeek.length;
+  document.getElementById('statRemaining').textContent = Math.max(0, maxW - myWeek.length);
+
+  const { count } = await sb.from('ae_reservas').select('*', {count:'exact',head:true})
+    .eq('alumno_id', currentUser.id).eq('estado', 'confirmada');
+  document.getElementById('statTotal').textContent = count || 0;
+
+  // Day tabs
+  document.getElementById('dayTabs').innerHTML = dates.map((dt, i) => {
+    const isToday = fmtDate(dt) === todayStr;
+    const isBlocked = blockedDays.includes(fmtDate(dt));
+    const dayRes = weekReservas.filter(r => r.fecha === fmtDate(dt));
+    const daySlots = slots.filter(s => s.dia_semana === i);
+    const free = isBlocked ? 0 : daySlots.length - dayRes.length;
+    return `
+      <div class="day-tab ${i===selectedDay?'active':''} ${isToday?'today':''} ${isBlocked?'blocked':''}"
+           onclick="${isBlocked?'':'selectDay('+i+')'}">
+        <div class="dt-name">${DAYS_SHORT[i]}</div>
+        <div class="dt-number">${dt.getDate()}</div>
+        <div class="dt-info">${isBlocked ? 'Cerrado' : free + ' libres'}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Check if selected day is blocked
+  const selDate = dates[selectedDay];
+  const selDateStr = fmtDate(selDate);
+  if (blockedDays.includes(selDateStr)) {
+    document.getElementById('slotsContainer').classList.add('hidden');
+    document.getElementById('blockedDayMsg').classList.remove('hidden');
+    document.getElementById('blockedReason').textContent = blockedMap[selDateStr] || 'No hay clases este dia';
+  } else {
+    document.getElementById('slotsContainer').classList.remove('hidden');
+    document.getElementById('blockedDayMsg').classList.add('hidden');
+    renderSlots(dates);
+  }
+
+  renderMyBookings(dates);
+}
+
+function selectDay(i) {
+  selectedDay = i;
+  renderWeek();
+}
+
+// =============================================
+// RENDER SLOTS
+// =============================================
+function renderSlots(dates) {
+  const date = dates[selectedDay];
+  const dateStr = fmtDate(date);
+  const now = new Date();
+  const isToday = dateStr === fmtDate(now);
+  const isPast = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const daySlots = slots.filter(s => s.dia_semana === selectedDay);
+  const dayRes = weekReservas.filter(r => r.fecha === dateStr);
+  const myWeek = weekReservas.filter(r => r.alumno_id === currentUser.id);
+  const maxW = parseInt(cfg.max_clases_alumno_semana || '2');
+  const canBook = myWeek.length < maxW;
+  const dur = parseInt(cfg.duracion_clase_min || '45');
+
+  document.getElementById('slotsTitle').textContent =
+    `${DAYS[selectedDay]} ${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
+
+  const freeCount = daySlots.length - dayRes.length;
+  document.getElementById('slotsCount').textContent = `${freeCount} de ${daySlots.length} libres`;
+
+  if (!daySlots.length) {
+    document.getElementById('slotsList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">&#128197;</div>
+        <div class="empty-text">No hay horarios para este dia</div>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('slotsList').innerHTML = daySlots.map(slot => {
+    const timeStr = slot.hora_inicio;
+    const timeShort = timeStr.slice(0,5);
+    const endTime = addMins(timeStr, dur);
+    const reserva = dayRes.find(r => r.hora_inicio === timeStr + ':00');
+    const isMine = reserva && reserva.alumno_id === currentUser.id;
+    const slotPast = isPast || (isToday && timeStr < now.toTimeString().slice(0,5));
+
+    if (slotPast && !reserva) {
+      return `
+        <div class="slot-item past">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+            <div class="slot-separator"></div>
+            <div class="slot-info"><div class="slot-status-text">Pasado</div><div class="slot-detail">${dur} min</div></div>
           </div>
-        `;
-      }).join('');
-      document.getElementById('dayTabs').innerHTML = tabsHtml;
-
-      renderSlots(dates);
-      renderMyBookings(dates);
+        </div>`;
     }
 
-    function selectDay(idx) {
-      selectedDay = idx;
-      const dates = getWeekDates(currentWeekOffset);
-
-      // Update tab styles
-      document.querySelectorAll('.day-tab').forEach((tab, i) => {
-        tab.classList.toggle('active', i === idx);
-      });
-
-      renderSlots(dates);
-    }
-
-    function renderSlots(dates) {
-      const date = dates[selectedDay];
-      const dateStr = formatDate(date);
-      const now = new Date();
-      const isToday = dateStr === formatDate(now);
-      const isPast = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      const daySlots = slots.filter(s => s.dia_semana === selectedDay);
-      const dayReservas = weekReservas.filter(r => r.fecha === dateStr);
-      const myWeekBookings = weekReservas.filter(r => r.alumno_id === currentUser.id);
-      const maxPerWeek = parseInt(allConfig.max_clases_alumno_semana || '2');
-      const canBook = myWeekBookings.length < maxPerWeek;
-
-      document.getElementById('slotsTitle').textContent =
-        `${DAYS[selectedDay]} ${date.getDate()} - Horarios`;
-
-      if (daySlots.length === 0) {
-        document.getElementById('slotsList').innerHTML =
-          '<p style="text-align:center;color:var(--text-light);padding:20px">No hay horarios configurados para este dia</p>';
-        return;
-      }
-
-      const html = daySlots.map(slot => {
-        const reserva = dayReservas.find(r => r.hora_inicio === slot.hora_inicio + ':00');
-        const isMine = reserva && reserva.alumno_id === currentUser.id;
-        const isSlotPast = isPast || (isToday && slot.hora_inicio < now.toTimeString().slice(0, 5));
-
-        const endTime = addMinutes(slot.hora_inicio, parseInt(allConfig.duracion_clase_min || '45'));
-
-        if (isSlotPast && !reserva) {
-          return `
-            <div class="slot-item past">
-              <div>
-                <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
-                <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
-              </div>
-              <span class="status">Pasado</span>
-            </div>
-          `;
-        }
-
-        if (isMine) {
-          return `
-            <div class="slot-item mine">
-              <div>
-                <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
-                <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
-              </div>
-              <div style="display:flex;align-items:center">
-                <span class="status">Tu clase</span>
-                ${!isSlotPast ? `<button class="cancel-btn" onclick="confirmCancel('${reserva.id}', '${slot.hora_inicio.slice(0,5)}', '${DAYS[selectedDay]}')">Cancelar</button>` : ''}
-              </div>
-            </div>
-          `;
-        }
-
-        if (reserva) {
-          return `
-            <div class="slot-item booked">
-              <div>
-                <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
-                <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
-              </div>
-              <span class="status">Ocupado</span>
-            </div>
-          `;
-        }
-
-        // Available
-        return `
-          <div class="slot-item available" onclick="${canBook && !isSlotPast ? `confirmBook('${dateStr}', '${slot.hora_inicio}', '${slot.hora_inicio.slice(0,5)}', '${DAYS[selectedDay]}')` : ''}">
-            <div>
-              <div class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</div>
-              <div class="duration">${allConfig.duracion_clase_min || 45} min</div>
-            </div>
-            <span class="status">${canBook && !isSlotPast ? 'Reservar' : (isSlotPast ? 'Pasado' : 'Limite alcanzado')}</span>
+    if (isMine) {
+      return `
+        <div class="slot-item mine fade-in">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+            <div class="slot-separator"></div>
+            <div class="slot-info"><div class="slot-status-text">Tu clase</div><div class="slot-detail">${dur} min</div></div>
           </div>
-        `;
-      }).join('');
-
-      document.getElementById('slotsList').innerHTML = html;
-    }
-
-    function renderMyBookings(dates) {
-      const myBookings = weekReservas
-        .filter(r => r.alumno_id === currentUser.id)
-        .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio));
-
-      if (myBookings.length === 0) {
-        document.getElementById('myBookingsList').innerHTML =
-          '<p style="text-align:center;color:var(--text-light);padding:12px;font-size:0.85rem">No tienes reservas esta semana</p>';
-        return;
-      }
-
-      const html = myBookings.map(b => {
-        const d = new Date(b.fecha + 'T00:00:00');
-        const dayIdx = d.getDay() - 1; // 0=Mon
-        const endTime = addMinutes(b.hora_inicio, parseInt(allConfig.duracion_clase_min || '45'));
-        return `
-          <div class="booking-item">
-            <div>
-              <div class="info">${DAYS[dayIdx >= 0 ? dayIdx : 0]} ${d.getDate()}</div>
-              <div class="sub">${b.hora_inicio.slice(0,5)} - ${endTime}</div>
-            </div>
-            <button class="btn btn-danger btn-small" onclick="confirmCancel('${b.id}', '${b.hora_inicio.slice(0,5)}', '${DAYS[dayIdx >= 0 ? dayIdx : 0]}')">Cancelar</button>
+          <div class="mine-actions">
+            <span class="mine-badge">Reservada</span>
+            ${!slotPast ? `<button class="cancel-x" onclick="confirmCancel('${reserva.id}','${timeShort}','${DAYS[selectedDay]}')">&#10005;</button>` : ''}
           </div>
-        `;
-      }).join('');
-
-      document.getElementById('myBookingsList').innerHTML = html;
+        </div>`;
     }
 
-    // ==========================================
-    // BOOKING ACTIONS
-    // ==========================================
-    function confirmBook(fecha, hora, horaDisplay, dia) {
-      pendingAction = () => bookSlot(fecha, hora);
-      document.getElementById('modalTitle').textContent = 'Confirmar reserva';
-      document.getElementById('modalMessage').textContent =
-        `Reservar clase el ${dia} a las ${horaDisplay}?`;
-      document.getElementById('modalConfirmBtn').className = 'btn-confirm';
-      document.getElementById('modalConfirmBtn').textContent = 'Reservar';
-      document.getElementById('confirmModal').classList.add('active');
+    if (reserva) {
+      return `
+        <div class="slot-item booked">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+            <div class="slot-separator"></div>
+            <div class="slot-info"><div class="slot-status-text">Ocupado</div><div class="slot-detail">${dur} min</div></div>
+          </div>
+          <span class="slot-booked-badge">No disponible</span>
+        </div>`;
     }
 
-    function confirmCancel(reservaId, hora, dia) {
-      pendingAction = () => cancelBooking(reservaId);
-      document.getElementById('modalTitle').textContent = 'Cancelar reserva';
-      document.getElementById('modalMessage').textContent =
-        `Cancelar tu clase del ${dia} a las ${hora}?`;
-      document.getElementById('modalConfirmBtn').className = 'btn-confirm danger';
-      document.getElementById('modalConfirmBtn').textContent = 'Si, cancelar';
-      document.getElementById('confirmModal').classList.add('active');
+    // Available
+    if (!canBook) {
+      return `
+        <div class="slot-item limit-reached">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+            <div class="slot-separator"></div>
+            <div class="slot-info"><div class="slot-status-text" style="color:var(--warning)">Limite alcanzado</div><div class="slot-detail">Maximo ${maxW} clases/semana</div></div>
+          </div>
+        </div>`;
     }
 
-    function closeModal() {
-      document.getElementById('confirmModal').classList.remove('active');
-      pendingAction = null;
-    }
+    return `
+      <div class="slot-item available" onclick="confirmBook('${dateStr}','${timeStr}','${timeShort}','${DAYS[selectedDay]}')">
+        <div class="slot-left">
+          <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
+          <div class="slot-separator"></div>
+          <div class="slot-info"><div class="slot-status-text">Disponible</div><div class="slot-detail">${dur} min</div></div>
+        </div>
+        <button class="slot-action-btn">Reservar</button>
+      </div>`;
+  }).join('');
+}
 
-    async function modalConfirmAction() {
-      closeModal();
-      if (pendingAction) await pendingAction();
-    }
+// =============================================
+// MY BOOKINGS
+// =============================================
+function renderMyBookings(dates) {
+  const mine = weekReservas
+    .filter(r => r.alumno_id === currentUser.id)
+    .sort((a,b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio));
 
-    async function bookSlot(fecha, hora) {
-      const { error } = await sb.from('ae_reservas').insert({
-        alumno_id: currentUser.id,
-        fecha: fecha,
-        hora_inicio: hora,
-        estado: 'confirmada'
-      });
+  if (!mine.length) {
+    document.getElementById('myBookingsList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">&#128197;</div>
+        <div class="empty-text">No tienes reservas esta semana</div>
+      </div>`;
+    return;
+  }
 
-      if (error) {
-        if (error.message.includes('ya tiene')) {
-          showToast('Ya tienes el maximo de clases esta semana', 'error');
-        } else if (error.message.includes('unique') || error.message.includes('duplicate')) {
-          showToast('Este horario acaba de ser reservado por otro alumno', 'error');
-        } else if (error.message.includes('limite')) {
-          showToast('Se alcanzo el limite de clases para este dia', 'error');
-        } else {
-          showToast('Error al reservar: ' + error.message, 'error');
-        }
-        renderWeek();
-        return;
-      }
+  const dur = parseInt(cfg.duracion_clase_min || '45');
+  document.getElementById('myBookingsList').innerHTML = mine.map(b => {
+    const d = new Date(b.fecha + 'T00:00:00');
+    const di = d.getDay() - 1;
+    const end = addMins(b.hora_inicio, dur);
+    return `
+      <div class="my-booking-item fade-in">
+        <div class="my-booking-left">
+          <div class="my-booking-day">
+            <span class="mbd-day">${DAYS_SHORT[di >= 0 ? di : 0]}</span>
+            <span class="mbd-num">${d.getDate()}</span>
+          </div>
+          <div class="my-booking-info">
+            <div class="mbi-time">${b.hora_inicio.slice(0,5)} - ${end}</div>
+            <div class="mbi-detail">${DAYS[di >= 0 ? di : 0]} - ${dur} minutos</div>
+          </div>
+        </div>
+        <button class="cancel-x" onclick="confirmCancel('${b.id}','${b.hora_inicio.slice(0,5)}','${DAYS[di >= 0 ? di : 0]}')">&#10005;</button>
+      </div>`;
+  }).join('');
+}
 
-      showToast('Clase reservada!', 'success');
-      renderWeek();
-    }
+// =============================================
+// BOOKING ACTIONS
+// =============================================
+function confirmBook(fecha, hora, horaDisp, dia) {
+  pendingFn = () => bookSlot(fecha, hora);
+  document.getElementById('modalIcon').className = 'modal-icon confirm';
+  document.getElementById('modalIcon').innerHTML = '&#9989;';
+  document.getElementById('modalTitle').textContent = 'Confirmar reserva';
+  document.getElementById('modalMsg').innerHTML = `Reservar clase el <strong>${dia}</strong> a las <strong>${horaDisp}</strong>?`;
+  document.getElementById('modalConfirmBtn').className = 'btn btn-success';
+  document.getElementById('modalConfirmBtn').textContent = 'Reservar';
+  document.getElementById('modalOverlay').classList.add('active');
+}
 
-    async function cancelBooking(reservaId) {
-      const { error } = await sb.from('ae_reservas')
-        .update({ estado: 'cancelada' })
-        .eq('id', reservaId)
-        .eq('alumno_id', currentUser.id);
+function confirmCancel(id, hora, dia) {
+  pendingFn = () => cancelBooking(id);
+  document.getElementById('modalIcon').className = 'modal-icon cancel';
+  document.getElementById('modalIcon').innerHTML = '&#10060;';
+  document.getElementById('modalTitle').textContent = 'Cancelar reserva';
+  document.getElementById('modalMsg').innerHTML = `Cancelar tu clase del <strong>${dia}</strong> a las <strong>${hora}</strong>?`;
+  document.getElementById('modalConfirmBtn').className = 'btn btn-danger';
+  document.getElementById('modalConfirmBtn').textContent = 'Si, cancelar';
+  document.getElementById('modalOverlay').classList.add('active');
+}
 
-      if (error) {
-        showToast('Error al cancelar', 'error');
-        return;
-      }
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  pendingFn = null;
+}
 
-      showToast('Reserva cancelada', 'success');
-      renderWeek();
-    }
+async function modalAction() {
+  closeModal();
+  if (pendingFn) await pendingFn();
+}
 
-    // ==========================================
-    // UTILS
-    // ==========================================
-    function addMinutes(timeStr, mins) {
-      const [h, m] = timeStr.split(':').map(Number);
-      const total = h * 60 + m + mins;
-      const nh = Math.floor(total / 60) % 24;
-      const nm = total % 60;
-      return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
-    }
+async function bookSlot(fecha, hora) {
+  const { error } = await sb.from('ae_reservas').insert({
+    alumno_id: currentUser.id, fecha, hora_inicio: hora, estado: 'confirmada'
+  });
 
-    function showToast(msg, type = '') {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = 'toast show ' + type;
-      setTimeout(() => t.className = 'toast', 3000);
-    }
-  </script>
+  if (error) {
+    if (error.message.includes('ya tiene'))
+      return toast('Ya tienes el maximo de clases esta semana', 'error');
+    if (error.message.includes('unique') || error.message.includes('duplicate'))
+      return toast('Ese horario acaba de ser reservado', 'error');
+    if (error.message.includes('limite'))
+      return toast('Limite de clases diarias alcanzado', 'error');
+    toast('Error al reservar', 'error');
+    renderWeek();
+    return;
+  }
+
+  toast('Clase reservada correctamente', 'success');
+  renderWeek();
+}
+
+async function cancelBooking(id) {
+  const { error } = await sb.from('ae_reservas')
+    .update({ estado: 'cancelada' })
+    .eq('id', id).eq('alumno_id', currentUser.id);
+
+  if (error) return toast('Error al cancelar', 'error');
+  toast('Reserva cancelada', 'success');
+  renderWeek();
+}
+
+// =============================================
+// PROFILE
+// =============================================
+async function renderProfile() {
+  document.getElementById('profileName').textContent = currentUser.nombre;
+  document.getElementById('profilePhone').textContent = currentUser.telefono;
+
+  const [resTotal, resCancelled, resWeek, resHistory] = await Promise.all([
+    sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).eq('estado','confirmada'),
+    sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).eq('estado','cancelada'),
+    sb.from('ae_reservas').select('*',{count:'exact',head:true}).eq('alumno_id',currentUser.id).eq('estado','confirmada')
+      .gte('fecha',fmtDate(getWeekDates(0)[0])).lte('fecha',fmtDate(getWeekDates(0)[4])),
+    sb.from('ae_reservas').select('*').eq('alumno_id',currentUser.id).order('fecha',{ascending:false}).order('hora_inicio',{ascending:false}).limit(20)
+  ]);
+
+  document.getElementById('profileTotal').textContent = resTotal.count || 0;
+  document.getElementById('profileCancelled').textContent = resCancelled.count || 0;
+  document.getElementById('profileThisWeek').textContent = resWeek.count || 0;
+
+  const history = resHistory.data || [];
+  if (!history.length) {
+    document.getElementById('historyList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">&#128196;</div>
+        <div class="empty-text">Aun no tienes historial</div>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('historyList').innerHTML = history.map(h => {
+    const d = new Date(h.fecha + 'T00:00:00');
+    const di = d.getDay() - 1;
+    const isCancelled = h.estado === 'cancelada';
+    return `
+      <div class="history-item">
+        <div class="history-left">
+          <div class="history-dot ${isCancelled?'cancelled':''}"></div>
+          <div>
+            <div class="history-date">${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</div>
+            <div class="history-time">${h.hora_inicio.slice(0,5)} - ${isCancelled?'Cancelada':'Completada'}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// =============================================
+// UTILS
+// =============================================
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function toast(msg, type = '') {
+  const c = document.getElementById('toastContainer');
+  const icons = { success: '&#9989;', error: '&#10060;', '': '&#8505;' };
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.innerHTML = `<span class="toast-icon">${icons[type]||icons['']}</span>${esc(msg)}`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-10px)'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+</script>
 </body>
 </html>

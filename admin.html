@@ -3,768 +3,751 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Autoescuela - Panel Admin</title>
+  <title>Admin - Autoescuela</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
     :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --success: #16a34a;
-      --danger: #dc2626;
-      --warning: #f59e0b;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #1e293b;
-      --text-light: #64748b;
-      --border: #e2e8f0;
+      --primary:#1e40af; --primary-light:#3b82f6; --primary-bg:#eff6ff;
+      --success:#059669; --success-bg:#ecfdf5;
+      --danger:#dc2626; --danger-bg:#fef2f2;
+      --warning:#d97706; --warning-bg:#fffbeb;
+      --bg:#f1f5f9; --card:#fff; --text:#0f172a; --text-secondary:#475569; --text-muted:#94a3b8;
+      --border:#e2e8f0;
+      --shadow:0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md:0 4px 6px rgba(0,0,0,0.05);
+      --radius:14px; --radius-sm:10px;
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
-    .header {
-      background: #1e293b;
-      color: white;
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .header h1 { font-size: 1.1rem; }
-    .header a {
-      color: rgba(255,255,255,0.7);
-      text-decoration: none;
-      font-size: 0.85rem;
-    }
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 16px;
-    }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
 
-    /* LOGIN ADMIN */
-    .admin-login {
-      max-width: 360px;
-      margin: 60px auto;
-      background: var(--card);
-      border-radius: 16px;
-      padding: 40px 30px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      text-align: center;
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* LOGIN */
+    .admin-login-screen {
+      min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background:linear-gradient(135deg,#0f172a,#1e293b);
+      padding:20px;
     }
-    .admin-login h2 { margin-bottom: 20px; }
-    .admin-login input {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      font-size: 1rem;
-      text-align: center;
-      margin-bottom: 16px;
+    .admin-login-card {
+      background:var(--card); border-radius:20px; padding:40px 32px; max-width:380px; width:100%;
+      box-shadow:0 20px 60px rgba(0,0,0,0.3); text-align:center;
     }
-    .admin-login input:focus { outline: none; border-color: var(--primary); }
+    .admin-login-card .admin-icon {
+      width:64px;height:64px;border-radius:16px;background:var(--primary-bg);
+      display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto 20px;
+    }
+    .admin-login-card h2 { font-size:1.3rem; margin-bottom:4px; }
+    .admin-login-card .sub { color:var(--text-muted); font-size:0.85rem; margin-bottom:24px; }
+    .admin-login-card input {
+      width:100%; padding:14px; border:2px solid var(--border); border-radius:var(--radius-sm);
+      font-size:1.1rem; text-align:center; font-family:inherit; letter-spacing:8px;
+    }
+    .admin-login-card input:focus { outline:none; border-color:var(--primary-light); box-shadow:0 0 0 4px rgba(59,130,246,0.1); }
+    .admin-login-card .btn { margin-top:16px; }
+
+    /* HEADER */
+    .header {
+      background:linear-gradient(135deg,#0f172a,#1e293b);
+      color:white; padding:16px 24px; position:sticky; top:0; z-index:50;
+      box-shadow:0 2px 12px rgba(0,0,0,0.2);
+    }
+    .header-inner { max-width:1000px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; }
+    .header h1 { font-size:1.1rem; display:flex; align-items:center; gap:8px; }
+    .header a { color:rgba(255,255,255,0.7); text-decoration:none; font-size:0.85rem; font-weight:500; }
+    .header a:hover { color:white; }
+
+    /* CONTAINER */
+    .container { max-width:1000px; margin:0 auto; padding:20px; }
+
+    /* STATS GRID */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:20px; }
+    .stat-box {
+      background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);
+      display:flex; align-items:center; gap:14px;
+    }
+    .stat-icon {
+      width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+      font-size:1.3rem;flex-shrink:0;
+    }
+    .stat-icon.blue { background:var(--primary-bg); }
+    .stat-icon.green { background:var(--success-bg); }
+    .stat-icon.orange { background:var(--warning-bg); }
+    .stat-icon.red { background:var(--danger-bg); }
+    .stat-info .stat-num { font-size:1.6rem; font-weight:800; line-height:1; }
+    .stat-info .stat-lbl { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
 
     /* TABS */
     .tabs {
-      display: flex;
-      gap: 4px;
-      margin: 16px 0;
-      background: var(--card);
-      border-radius: 12px;
-      padding: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      display:flex; gap:4px; background:var(--card); border-radius:var(--radius); padding:5px;
+      box-shadow:var(--shadow); margin-bottom:20px; overflow-x:auto;
     }
     .tab {
-      flex: 1;
-      padding: 10px;
-      text-align: center;
-      border: none;
-      background: none;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      cursor: pointer;
-      color: var(--text-light);
+      flex:1; padding:10px 6px; text-align:center; border:none; background:none;
+      border-radius:var(--radius-sm); font-weight:600; font-size:0.8rem; cursor:pointer;
+      color:var(--text-muted); font-family:inherit; white-space:nowrap; transition:all 0.2s;
     }
-    .tab.active {
-      background: var(--primary);
-      color: white;
-    }
+    .tab.active { background:var(--primary); color:white; box-shadow:0 2px 8px rgba(30,64,175,0.3); }
+    .tab:hover:not(.active) { color:var(--text); background:#f1f5f9; }
 
-    /* CARDS */
+    /* CARD */
     .card {
-      background: var(--card);
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      margin-bottom: 16px;
+      background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+      margin-bottom:16px; overflow:hidden;
     }
-    .card h3 {
-      font-size: 1rem;
-      margin-bottom: 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .card-header {
+      padding:18px 20px; border-bottom:1px solid var(--border);
+      display:flex; justify-content:space-between; align-items:center;
     }
+    .card-header h3 { font-size:0.95rem; font-weight:700; }
+    .card-body { padding:16px 20px; }
 
     /* TABLE */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-    }
-    th, td {
-      padding: 10px 12px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-    th {
-      font-weight: 600;
-      color: var(--text-light);
-      font-size: 0.75rem;
-      text-transform: uppercase;
-    }
-    tr:last-child td { border-bottom: none; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    th,td { padding:12px 14px; text-align:left; border-bottom:1px solid var(--border); }
+    th { font-weight:600; color:var(--text-muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; background:#f8fafc; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#fafbfd; }
 
     /* FORM */
-    .form-row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
+    .form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+    .form-field { flex:1; min-width:140px; }
+    .form-field label { display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
+    .form-field input, .form-field select {
+      width:100%; padding:10px 12px; border:2px solid var(--border); border-radius:8px; font-size:0.9rem; font-family:inherit;
     }
-    .form-row input, .form-row select {
-      flex: 1;
-      min-width: 120px;
-      padding: 10px 12px;
-      border: 2px solid var(--border);
-      border-radius: 8px;
-      font-size: 0.9rem;
-    }
-    .form-row input:focus, .form-row select:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
+    .form-field input:focus, .form-field select:focus { outline:none; border-color:var(--primary-light); }
 
+    /* BUTTONS */
     .btn {
-      padding: 10px 18px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      cursor: pointer;
+      display:inline-flex; align-items:center; justify-content:center; gap:6px;
+      padding:10px 18px; border:none; border-radius:8px; font-size:0.85rem; font-weight:600;
+      cursor:pointer; font-family:inherit; transition:all 0.2s;
     }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-small { padding: 6px 12px; font-size: 0.75rem; }
-    .btn-success { background: var(--success); color: white; }
-    .btn-warning { background: var(--warning); color: white; }
+    .btn:active { transform:scale(0.97); }
+    .btn-primary { background:var(--primary); color:white; width:100%; }
+    .btn-primary:hover { background:#1e3a8a; }
+    .btn-sm { padding:6px 12px; font-size:0.75rem; }
+    .btn-success { background:var(--success); color:white; }
+    .btn-danger { background:var(--danger); color:white; }
+    .btn-warning { background:var(--warning); color:white; }
+    .btn-outline { background:transparent; color:var(--text-secondary); border:2px solid var(--border); }
+    .btn-outline:hover { border-color:var(--primary-light); color:var(--primary); }
 
-    /* Badge */
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 0.7rem;
-      font-weight: 600;
+    /* BADGE */
+    .badge { display:inline-block; padding:3px 10px; border-radius:6px; font-size:0.7rem; font-weight:700; }
+    .badge-green { background:#dcfce7; color:#166534; }
+    .badge-red { background:#fee2e2; color:#991b1b; }
+    .badge-blue { background:#dbeafe; color:#1e40af; }
+    .badge-gray { background:#f1f5f9; color:#64748b; }
+
+    /* SEARCH */
+    .search-input {
+      width:100%; padding:10px 14px 10px 36px; border:2px solid var(--border); border-radius:var(--radius-sm);
+      font-size:0.9rem; font-family:inherit; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center;
     }
-    .badge-green { background: #dcfce7; color: #166534; }
-    .badge-red { background: #fee2e2; color: #991b1b; }
-    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .search-input:focus { outline:none; border-color:var(--primary-light); }
 
     /* AGENDA */
-    .agenda-day {
-      margin-bottom: 20px;
+    .agenda-day { margin-bottom:20px; animation:fadeIn 0.3s ease; }
+    .agenda-day-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:10px 16px; background:#f8fafc; border-radius:10px; margin-bottom:8px;
+      font-weight:700; font-size:0.9rem;
     }
-    .agenda-day h4 {
-      font-size: 0.9rem;
-      margin-bottom: 8px;
-      padding: 8px 12px;
-      background: #f1f5f9;
-      border-radius: 8px;
+    .agenda-day-header .occupancy { font-size:0.8rem; font-weight:500; color:var(--text-muted); }
+    .agenda-row {
+      display:flex; align-items:center; padding:10px 16px; border-bottom:1px solid #f1f5f9;
+      gap:12px; font-size:0.85rem;
     }
-    .agenda-slot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
+    .agenda-row:last-child { border-bottom:none; }
+    .agenda-time { min-width:100px; font-weight:700; }
+    .agenda-student { flex:1; }
+    .agenda-row.free { color:var(--text-muted); }
+    .agenda-row.free .agenda-student { font-style:italic; }
+    .agenda-bar {
+      height:6px; border-radius:3px; background:var(--border); overflow:hidden; margin-top:4px;
     }
-    .agenda-slot .time { font-weight: 700; min-width: 100px; }
-    .agenda-slot .student { flex: 1; }
-    .agenda-slot.free { color: var(--text-light); }
-    .agenda-slot.free .student { font-style: italic; }
+    .agenda-bar-fill { height:100%; border-radius:3px; background:var(--primary-light); transition:width 0.5s; }
 
-    /* Stats overview */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
+    /* SLOTS CONFIG */
+    .slots-day { margin-bottom:16px; }
+    .slots-day-title { font-weight:700; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+    .slots-day-count { font-size:0.75rem; color:var(--text-muted); font-weight:400; }
+    .slot-tags { display:flex; flex-wrap:wrap; gap:6px; }
+    .slot-tag {
+      display:inline-flex; align-items:center; gap:4px; padding:6px 12px;
+      border-radius:8px; font-size:0.8rem; font-weight:600; font-family:inherit;
     }
-    .stat-box {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 16px;
-      text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    .slot-tag.active { background:#dbeafe; color:#1e40af; }
+    .slot-tag.inactive { background:#fee2e2; color:#991b1b; text-decoration:line-through; opacity:0.6; }
+    .slot-tag button {
+      background:none; border:none; cursor:pointer; font-size:0.65rem; opacity:0.6;
+      width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     }
-    .stat-box .num {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--primary);
-    }
-    .stat-box .lbl {
-      font-size: 0.75rem;
-      color: var(--text-light);
-      margin-top: 4px;
-    }
+    .slot-tag button:hover { opacity:1; background:rgba(0,0,0,0.1); }
 
+    /* CONFIG */
+    .config-item {
+      padding:16px 0; border-bottom:1px solid var(--border);
+    }
+    .config-item:last-child { border-bottom:none; }
+    .config-item label { display:block; font-weight:600; font-size:0.9rem; margin-bottom:4px; }
+    .config-item .config-desc { font-size:0.75rem; color:var(--text-muted); margin-bottom:8px; }
+    .config-item input {
+      width:100%; max-width:300px; padding:10px 12px; border:2px solid var(--border);
+      border-radius:8px; font-size:0.9rem; font-family:inherit;
+    }
+    .config-item input:focus { outline:none; border-color:var(--primary-light); }
+
+    /* AVISOS */
+    .aviso-card {
+      padding:14px 16px; border:1px solid var(--border); border-radius:10px; margin-bottom:10px;
+      display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+    }
+    .aviso-card .aviso-content { flex:1; }
+    .aviso-card .aviso-title { font-weight:700; font-size:0.9rem; }
+    .aviso-card .aviso-msg { font-size:0.8rem; color:var(--text-secondary); margin-top:2px; }
+
+    /* TOAST */
+    .toast-container {
+      position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:200;
+      display:flex;flex-direction:column;gap:8px;pointer-events:none;width:90%;max-width:400px;
+    }
     .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: var(--text);
-      color: white;
-      padding: 14px 24px;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      z-index: 1000;
-      transition: transform 0.3s ease;
+      background:var(--text);color:white;padding:14px 20px;border-radius:var(--radius-sm);
+      font-size:0.85rem;font-weight:500;box-shadow:0 10px 25px rgba(0,0,0,0.15);
+      animation:fadeIn 0.3s ease;pointer-events:auto;display:flex;align-items:center;gap:8px;
     }
-    .toast.show { transform: translateX(-50%) translateY(0); }
-    .toast.error { background: var(--danger); }
-    .toast.success { background: var(--success); }
+    .toast.success { background:var(--success); }
+    .toast.error { background:var(--danger); }
 
-    .hidden { display: none !important; }
+    .hidden { display:none !important; }
 
-    .search-bar {
-      width: 100%;
-      padding: 10px 14px;
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.9rem;
-      margin-bottom: 12px;
-    }
-    .search-bar:focus { outline: none; border-color: var(--primary); }
-
-    @media (max-width: 600px) {
-      table { font-size: 0.75rem; }
-      th, td { padding: 8px 6px; }
+    @media (max-width:640px) {
+      .stats-grid { grid-template-columns:repeat(2,1fr); }
+      table { font-size:0.75rem; }
+      th,td { padding:8px 8px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ADMIN LOGIN -->
-  <div id="adminLogin">
-    <div class="admin-login">
-      <h2>Panel Administrador</h2>
-      <p style="color:var(--text-light);margin-bottom:20px;font-size:0.9rem">Introduce el PIN de admin</p>
-      <input type="password" id="adminPinInput" placeholder="PIN" maxlength="10" inputmode="numeric">
-      <button class="btn btn-primary" style="width:100%;padding:14px" onclick="adminLogin()">Entrar</button>
+<!-- LOGIN -->
+<div id="loginScreen" class="admin-login-screen">
+  <div class="admin-login-card">
+    <div class="admin-icon">&#9881;</div>
+    <h2>Panel Administrador</h2>
+    <p class="sub">Introduce el PIN de administrador</p>
+    <input type="password" id="pinInput" placeholder="****" maxlength="10" inputmode="numeric">
+    <button class="btn btn-primary" onclick="adminLogin()">Acceder</button>
+    <div style="margin-top:16px"><a href="index.html" style="color:var(--primary-light);text-decoration:none;font-size:0.85rem">Volver a la web</a></div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" class="hidden">
+  <div class="header">
+    <div class="header-inner">
+      <h1>&#9881; Panel Administrador</h1>
+      <a href="index.html">&#8592; Volver a la web</a>
     </div>
   </div>
 
-  <!-- ADMIN PANEL -->
-  <div id="adminPanel" class="hidden">
-    <div class="header">
-      <h1>Panel Administrador</h1>
-      <a href="index.html">Volver a la web</a>
+  <div class="container">
+    <div class="stats-grid" id="statsGrid" style="margin-top:4px"></div>
+
+    <div class="tabs" id="tabsBar">
+      <button class="tab active" data-tab="agenda" onclick="switchTab('agenda')">&#128197; Agenda</button>
+      <button class="tab" data-tab="alumnos" onclick="switchTab('alumnos')">&#128101; Alumnos</button>
+      <button class="tab" data-tab="horarios" onclick="switchTab('horarios')">&#9200; Horarios</button>
+      <button class="tab" data-tab="avisos" onclick="switchTab('avisos')">&#128227; Avisos</button>
+      <button class="tab" data-tab="bloqueos" onclick="switchTab('bloqueos')">&#128683; Bloqueos</button>
+      <button class="tab" data-tab="config" onclick="switchTab('config')">&#9881; Config</button>
     </div>
 
-    <div class="container">
-      <!-- Stats -->
-      <div class="stats-grid" style="margin-top:16px" id="statsGrid"></div>
-
-      <!-- Tabs -->
-      <div class="tabs">
-        <button class="tab active" onclick="switchTab('agenda')">Agenda</button>
-        <button class="tab" onclick="switchTab('alumnos')">Alumnos</button>
-        <button class="tab" onclick="switchTab('horarios')">Horarios</button>
-        <button class="tab" onclick="switchTab('config')">Config</button>
+    <!-- TAB: AGENDA -->
+    <div id="tab-agenda">
+      <div class="card">
+        <div class="card-header">
+          <h3>Agenda semanal</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-sm btn-outline" onclick="changeAdminWeek(-1)">&#9664; Anterior</button>
+            <span id="adminWeekLabel" style="font-size:0.85rem;font-weight:600;min-width:160px;text-align:center"></span>
+            <button class="btn btn-sm btn-outline" onclick="changeAdminWeek(1)">Siguiente &#9654;</button>
+          </div>
+        </div>
+        <div class="card-body" id="agendaContent"></div>
       </div>
+    </div>
 
-      <!-- AGENDA TAB -->
-      <div id="tab-agenda">
-        <div class="card">
-          <h3>
-            <span>Agenda semanal</span>
-            <div>
-              <button class="btn btn-small btn-primary" onclick="changeAdminWeek(-1)">&#9664;</button>
-              <span id="adminWeekLabel" style="margin:0 8px;font-size:0.85rem"></span>
-              <button class="btn btn-small btn-primary" onclick="changeAdminWeek(1)">&#9654;</button>
+    <!-- TAB: ALUMNOS -->
+    <div id="tab-alumnos" class="hidden">
+      <div class="card">
+        <div class="card-header"><h3>Nuevo alumno</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-field"><label>Nombre</label><input type="text" id="newName" placeholder="Nombre completo"></div>
+            <div class="form-field"><label>Telefono</label><input type="tel" id="newPhone" placeholder="612345678"></div>
+            <div class="form-field" style="min-width:100px"><label>PIN</label><input type="text" id="newPin" value="1234" maxlength="6"></div>
+            <div class="form-field" style="min-width:auto;flex:0"><label>&nbsp;</label><button class="btn btn-success" onclick="addStudent()">Agregar</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>Alumnos <span id="studentCount" class="badge badge-blue" style="margin-left:6px">0</span></h3>
+        </div>
+        <div class="card-body" style="padding-bottom:8px">
+          <input type="text" class="search-input" placeholder="Buscar por nombre o telefono..." oninput="filterStudents(this.value)">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nombre</th><th>Telefono</th><th>PIN</th><th>Semana</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="studentsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: HORARIOS -->
+    <div id="tab-horarios" class="hidden">
+      <div class="card">
+        <div class="card-header"><h3>Agregar horario</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-field">
+              <label>Dia</label>
+              <select id="newSlotDay">
+                <option value="0">Lunes</option><option value="1">Martes</option>
+                <option value="2">Miercoles</option><option value="3">Jueves</option>
+                <option value="4">Viernes</option>
+              </select>
             </div>
-          </h3>
-          <div id="agendaContent"></div>
-        </div>
-      </div>
-
-      <!-- ALUMNOS TAB -->
-      <div id="tab-alumnos" class="hidden">
-        <div class="card">
-          <h3>Nuevo alumno</h3>
-          <div class="form-row">
-            <input type="text" id="newName" placeholder="Nombre completo">
-            <input type="tel" id="newPhone" placeholder="Telefono">
-            <input type="text" id="newPin" placeholder="PIN" value="1234" maxlength="6">
-            <button class="btn btn-primary" onclick="addStudent()">Agregar</button>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Alumnos (<span id="studentCount">0</span>)</h3>
-          <input type="text" class="search-bar" placeholder="Buscar alumno..." oninput="filterStudents(this.value)">
-          <div style="overflow-x:auto">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Telefono</th>
-                  <th>PIN</th>
-                  <th>Clases semana</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="studentsTable"></tbody>
-            </table>
+            <div class="form-field"><label>Hora inicio</label><input type="time" id="newSlotTime" value="09:00"></div>
+            <div class="form-field" style="flex:0"><label>&nbsp;</label><button class="btn btn-success" onclick="addSlot()">Agregar</button></div>
           </div>
         </div>
       </div>
+      <div class="card">
+        <div class="card-header"><h3>Horarios por dia</h3></div>
+        <div class="card-body" id="slotsConfig"></div>
+      </div>
+    </div>
 
-      <!-- HORARIOS TAB -->
-      <div id="tab-horarios" class="hidden">
-        <div class="card">
-          <h3>Agregar horario</h3>
+    <!-- TAB: AVISOS -->
+    <div id="tab-avisos" class="hidden">
+      <div class="card">
+        <div class="card-header"><h3>Nuevo aviso</h3></div>
+        <div class="card-body">
+          <div class="form-row" style="flex-direction:column">
+            <div class="form-field" style="width:100%"><label>Titulo</label><input type="text" id="newAvisoTitle" placeholder="Titulo del aviso"></div>
+            <div class="form-field" style="width:100%"><label>Mensaje</label><input type="text" id="newAvisoMsg" placeholder="Detalle del aviso"></div>
+            <button class="btn btn-success" style="align-self:flex-start" onclick="addAviso()">Publicar aviso</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Avisos activos</h3></div>
+        <div class="card-body" id="avisosList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: BLOQUEOS -->
+    <div id="tab-bloqueos" class="hidden">
+      <div class="card">
+        <div class="card-header"><h3>Bloquear dia</h3></div>
+        <div class="card-body">
           <div class="form-row">
-            <select id="newSlotDay">
-              <option value="0">Lunes</option>
-              <option value="1">Martes</option>
-              <option value="2">Miercoles</option>
-              <option value="3">Jueves</option>
-              <option value="4">Viernes</option>
+            <div class="form-field"><label>Fecha</label><input type="date" id="blockDate"></div>
+            <div class="form-field"><label>Motivo</label><input type="text" id="blockReason" placeholder="Festivo, vacaciones..."></div>
+            <div class="form-field" style="flex:0"><label>&nbsp;</label><button class="btn btn-danger" onclick="blockDay()">Bloquear</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Dias bloqueados</h3></div>
+        <div class="card-body" id="blockedList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: CONFIG -->
+    <div id="tab-config" class="hidden">
+      <div class="card">
+        <div class="card-header"><h3>Configuracion general</h3></div>
+        <div class="card-body" id="configBody">
+          <div class="config-item">
+            <label>Nombre de la autoescuela</label>
+            <div class="config-desc">Se muestra en la web de los alumnos</div>
+            <input type="text" id="cfgName">
+          </div>
+          <div class="config-item">
+            <label>Telefono de contacto</label>
+            <div class="config-desc">Visible para los alumnos</div>
+            <input type="tel" id="cfgPhone">
+          </div>
+          <div class="config-item">
+            <label>Maximo clases por alumno / semana</label>
+            <div class="config-desc">Cada alumno puede reservar hasta este numero de clases semanales</div>
+            <input type="number" id="cfgMaxWeek" min="1" max="10">
+          </div>
+          <div class="config-item">
+            <label>Maximo clases por dia</label>
+            <div class="config-desc">Limite total de clases que puedes dar en un dia</div>
+            <input type="number" id="cfgMaxDay" min="1" max="30">
+          </div>
+          <div class="config-item">
+            <label>Duracion de clase (minutos)</label>
+            <div class="config-desc">Duracion estandar de cada clase practica</div>
+            <input type="number" id="cfgDuration" min="15" max="120" step="5">
+          </div>
+          <div class="config-item">
+            <label>Permitir auto-registro</label>
+            <div class="config-desc">Los alumnos pueden crear su propia cuenta</div>
+            <select id="cfgRegister" style="width:100%;max-width:300px;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.9rem">
+              <option value="true">Si, permitir</option>
+              <option value="false">No, solo el admin crea cuentas</option>
             </select>
-            <input type="time" id="newSlotTime" value="09:00">
-            <button class="btn btn-primary" onclick="addSlot()">Agregar</button>
           </div>
-        </div>
-        <div class="card">
-          <h3>Horarios configurados</h3>
-          <div id="slotsConfig"></div>
-        </div>
-      </div>
-
-      <!-- CONFIG TAB -->
-      <div id="tab-config" class="hidden">
-        <div class="card">
-          <h3>Configuracion general</h3>
-          <div style="display:grid;gap:16px">
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
-                Maximo clases por alumno / semana
-              </label>
-              <input type="number" id="cfgMaxWeek" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" min="1" max="5">
-            </div>
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
-                Maximo clases por dia
-              </label>
-              <input type="number" id="cfgMaxDay" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" min="1" max="30">
-            </div>
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
-                Duracion clase (minutos)
-              </label>
-              <input type="number" id="cfgDuration" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" min="15" max="120" step="5">
-            </div>
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">
-                PIN de administrador
-              </label>
-              <input type="text" id="cfgAdminPin" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px" maxlength="10">
-            </div>
-            <button class="btn btn-primary" onclick="saveConfig()">Guardar configuracion</button>
+          <div class="config-item">
+            <label>PIN de administrador</label>
+            <div class="config-desc">Para acceder a este panel</div>
+            <input type="text" id="cfgAdminPin" maxlength="10">
+          </div>
+          <div style="padding-top:16px">
+            <button class="btn btn-primary" style="max-width:300px" onclick="saveConfig()">Guardar cambios</button>
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <div class="toast" id="toast"></div>
+<div class="toast-container" id="toastContainer"></div>
 
-  <script>
-    const SUPABASE_URL = 'https://uwcldzuyvkoecnmcprle.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y2xkenV5dmtvZWNubWNwcmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NzE3NTQsImV4cCI6MjA4MjM0Nzc1NH0.XU8WPZgZlMht3f5G2Ui4_R230Trb6p3BLdwRJbp2Eyg';
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<script>
+const SUPABASE_URL = 'https://uwcldzuyvkoecnmcprle.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y2xkenV5dmtvZWNubWNwcmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NzE3NTQsImV4cCI6MjA4MjM0Nzc1NH0.XU8WPZgZlMht3f5G2Ui4_R230Trb6p3BLdwRJbp2Eyg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const DAYS = ['Lunes','Martes','Miercoles','Jueves','Viernes'];
+const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+let allStudents=[], allSlots=[], cfg={}, adminWeekOff=0;
 
-    const DAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
-    let allStudents = [];
-    let allSlots = [];
-    let allConfig = {};
-    let adminWeekOffset = 0;
+document.getElementById('pinInput').addEventListener('keypress', e=>{ if(e.key==='Enter') adminLogin(); });
 
-    // Admin login
-    document.getElementById('adminPinInput').addEventListener('keypress', e => {
-      if (e.key === 'Enter') adminLogin();
-    });
+async function adminLogin() {
+  const pin = document.getElementById('pinInput').value;
+  const {data} = await sb.from('ae_config').select('*').eq('key','admin_pin').single();
+  if(!data || data.value !== pin) return toast('PIN incorrecto','error');
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('adminPanel').classList.remove('hidden');
+  loadAll();
+}
 
-    async function adminLogin() {
-      const pin = document.getElementById('adminPinInput').value;
-      const { data } = await sb.from('ae_config').select('*').eq('key', 'admin_pin').single();
+async function loadAll() {
+  const {data:c} = await sb.from('ae_config').select('*');
+  if(c) c.forEach(r=> cfg[r.key]=r.value);
+  document.getElementById('cfgName').value = cfg.nombre_autoescuela||'';
+  document.getElementById('cfgPhone').value = cfg.telefono_autoescuela||'';
+  document.getElementById('cfgMaxWeek').value = cfg.max_clases_alumno_semana||2;
+  document.getElementById('cfgMaxDay').value = cfg.max_clases_dia||15;
+  document.getElementById('cfgDuration').value = cfg.duracion_clase_min||45;
+  document.getElementById('cfgAdminPin').value = cfg.admin_pin||'0000';
+  document.getElementById('cfgRegister').value = cfg.permitir_registro||'true';
+  await Promise.all([loadStudents(),loadSlots(),loadAgenda(),loadStats(),loadAvisos(),loadBlocked()]);
+}
 
-      if (!data || data.value !== pin) {
-        showToast('PIN incorrecto', 'error');
-        return;
-      }
+// STATS
+async function loadStats() {
+  const {count:total} = await sb.from('ae_alumnos').select('*',{count:'exact',head:true}).eq('activo',true);
+  const wd = getWeekDates(0);
+  const {count:weekB} = await sb.from('ae_reservas').select('*',{count:'exact',head:true})
+    .gte('fecha',fmt(wd[0])).lte('fecha',fmt(wd[4])).eq('estado','confirmada');
+  const totalSlots = allSlots.filter(s=>s.activo).length;
+  const occ = totalSlots>0 ? Math.round((weekB||0)/totalSlots*100) : 0;
+  const {count:todayB} = await sb.from('ae_reservas').select('*',{count:'exact',head:true})
+    .eq('fecha',fmt(new Date())).eq('estado','confirmada');
 
-      document.getElementById('adminLogin').classList.add('hidden');
-      document.getElementById('adminPanel').classList.remove('hidden');
-      loadAll();
-    }
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-box"><div class="stat-icon blue">&#128101;</div><div class="stat-info"><div class="stat-num">${total||0}</div><div class="stat-lbl">Alumnos activos</div></div></div>
+    <div class="stat-box"><div class="stat-icon green">&#128197;</div><div class="stat-info"><div class="stat-num">${weekB||0}</div><div class="stat-lbl">Reservas semana</div></div></div>
+    <div class="stat-box"><div class="stat-icon orange">&#128338;</div><div class="stat-info"><div class="stat-num">${todayB||0}</div><div class="stat-lbl">Clases hoy</div></div></div>
+    <div class="stat-box"><div class="stat-icon ${occ>80?'red':'blue'}">&#128200;</div><div class="stat-info"><div class="stat-num">${occ}%</div><div class="stat-lbl">Ocupacion semana</div></div></div>
+  `;
+}
 
-    async function loadAll() {
-      // Config
-      const { data: cfg } = await sb.from('ae_config').select('*');
-      if (cfg) cfg.forEach(r => allConfig[r.key] = r.value);
+// TABS
+function switchTab(name) {
+  const tabs = ['agenda','alumnos','horarios','avisos','bloqueos','config'];
+  tabs.forEach(t => document.getElementById('tab-'+t).classList.toggle('hidden', t!==name));
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
+}
 
-      document.getElementById('cfgMaxWeek').value = allConfig.max_clases_alumno_semana || 2;
-      document.getElementById('cfgMaxDay').value = allConfig.max_clases_dia || 15;
-      document.getElementById('cfgDuration').value = allConfig.duracion_clase_min || 45;
-      document.getElementById('cfgAdminPin').value = allConfig.admin_pin || '0000';
+// STUDENTS
+async function loadStudents() {
+  const {data} = await sb.from('ae_alumnos').select('*').order('nombre');
+  allStudents = data||[];
+  renderStudents(allStudents);
+}
 
-      await Promise.all([loadStudents(), loadSlots(), loadAgenda(), loadStats()]);
-    }
+function filterStudents(q) {
+  renderStudents(allStudents.filter(s =>
+    s.nombre.toLowerCase().includes(q.toLowerCase()) || s.telefono.includes(q)
+  ));
+}
 
-    // ==========================================
-    // STATS
-    // ==========================================
-    async function loadStats() {
-      const { count: totalStudents } = await sb.from('ae_alumnos').select('*', { count: 'exact', head: true }).eq('activo', true);
+async function renderStudents(list) {
+  document.getElementById('studentCount').textContent = allStudents.filter(s=>s.activo).length;
+  const wd=getWeekDates(0);
+  const {data:res} = await sb.from('ae_reservas').select('alumno_id')
+    .gte('fecha',fmt(wd[0])).lte('fecha',fmt(wd[4])).eq('estado','confirmada');
+  const cnt={};(res||[]).forEach(r=>cnt[r.alumno_id]=(cnt[r.alumno_id]||0)+1);
 
-      const weekDates = getWeekDates(0);
-      const weekStart = formatDate(weekDates[0]);
-      const weekEnd = formatDate(weekDates[4]);
-      const { count: weekBookings } = await sb.from('ae_reservas').select('*', { count: 'exact', head: true })
-        .gte('fecha', weekStart).lte('fecha', weekEnd).eq('estado', 'confirmada');
+  document.getElementById('studentsTable').innerHTML = list.map(s=>`
+    <tr style="${s.activo?'':'opacity:0.5'}">
+      <td><strong>${esc(s.nombre)}</strong></td>
+      <td>${s.telefono}</td>
+      <td><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px">${s.pin}</code></td>
+      <td><span class="badge badge-blue">${cnt[s.id]||0}/${cfg.max_clases_alumno_semana||2}</span></td>
+      <td>${s.activo?'<span class="badge badge-green">Activo</span>':'<span class="badge badge-red">Inactivo</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm ${s.activo?'btn-warning':'btn-success'}" onclick="toggleStudent('${s.id}',${!s.activo})">${s.activo?'Desactivar':'Activar'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteStudent('${s.id}','${esc(s.nombre)}')">Eliminar</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px">No hay alumnos</td></tr>';
+}
 
-      const totalSlots = allSlots.filter(s => s.activo).length;
-      const occupancy = totalSlots > 0 ? Math.round((weekBookings || 0) / totalSlots * 100) : 0;
+async function addStudent() {
+  const n=document.getElementById('newName').value.trim();
+  const t=document.getElementById('newPhone').value.replace(/\s/g,'');
+  const p=document.getElementById('newPin').value.trim()||'1234';
+  if(!n||!t) return toast('Nombre y telefono obligatorios','error');
+  const {error} = await sb.from('ae_alumnos').insert({nombre:n,telefono:t,pin:p});
+  if(error){ toast(error.message.includes('unique')?'Telefono ya existe':'Error: '+error.message,'error'); return; }
+  toast('Alumno agregado','success');
+  document.getElementById('newName').value=''; document.getElementById('newPhone').value=''; document.getElementById('newPin').value='1234';
+  loadStudents(); loadStats();
+}
 
-      document.getElementById('statsGrid').innerHTML = `
-        <div class="stat-box">
-          <div class="num">${totalStudents || 0}</div>
-          <div class="lbl">Alumnos activos</div>
+async function toggleStudent(id,val) {
+  await sb.from('ae_alumnos').update({activo:val}).eq('id',id);
+  toast(val?'Alumno activado':'Alumno desactivado','success');
+  loadStudents(); loadStats();
+}
+
+async function deleteStudent(id,name) {
+  if(!confirm(`Eliminar a ${name}? Se borraran todas sus reservas.`)) return;
+  await sb.from('ae_alumnos').delete().eq('id',id);
+  toast('Alumno eliminado','success');
+  loadStudents(); loadStats();
+}
+
+// SLOTS
+async function loadSlots() {
+  const {data} = await sb.from('ae_slots').select('*').order('dia_semana').order('hora_inicio');
+  allSlots = data||[];
+  renderSlotsConfig();
+}
+
+function renderSlotsConfig() {
+  document.getElementById('slotsConfig').innerHTML = DAYS.map((d,i) => {
+    const ds = allSlots.filter(s=>s.dia_semana===i);
+    return `
+      <div class="slots-day">
+        <div class="slots-day-title">${d} <span class="slots-day-count">${ds.filter(s=>s.activo).length} activos</span></div>
+        <div class="slot-tags">
+          ${ds.map(s=>`
+            <span class="slot-tag ${s.activo?'active':'inactive'}">
+              ${s.hora_inicio.slice(0,5)}
+              <button onclick="toggleSlot(${s.id},${!s.activo})" title="${s.activo?'Desactivar':'Activar'}">${s.activo?'&#10005;':'&#10003;'}</button>
+            </span>
+          `).join('')||'<span style="color:var(--text-muted);font-size:0.8rem">Sin horarios</span>'}
         </div>
-        <div class="stat-box">
-          <div class="num">${weekBookings || 0}</div>
-          <div class="lbl">Reservas esta semana</div>
+      </div>`;
+  }).join('');
+}
+
+async function addSlot() {
+  const d=parseInt(document.getElementById('newSlotDay').value);
+  const h=document.getElementById('newSlotTime').value;
+  if(!h) return toast('Selecciona hora','error');
+  const {error} = await sb.from('ae_slots').insert({dia_semana:d,hora_inicio:h});
+  if(error){ toast(error.message.includes('unique')?'Ya existe ese horario':'Error','error'); return; }
+  toast('Horario agregado','success'); loadSlots();
+}
+
+async function toggleSlot(id,val) {
+  await sb.from('ae_slots').update({activo:val}).eq('id',id);
+  loadSlots();
+}
+
+// AGENDA
+function changeAdminWeek(d) { adminWeekOff+=d; loadAgenda(); }
+
+async function loadAgenda() {
+  const dates = getWeekDates(adminWeekOff);
+  document.getElementById('adminWeekLabel').textContent =
+    `${dates[0].getDate()} ${MONTHS_SHORT[dates[0].getMonth()]} - ${dates[4].getDate()} ${MONTHS_SHORT[dates[4].getMonth()]}`;
+
+  const {data:res} = await sb.from('ae_reservas').select('*,ae_alumnos(nombre,telefono)')
+    .gte('fecha',fmt(dates[0])).lte('fecha',fmt(dates[4])).eq('estado','confirmada').order('hora_inicio');
+  const {data:blocked} = await sb.from('ae_dias_bloqueados').select('*')
+    .gte('fecha',fmt(dates[0])).lte('fecha',fmt(dates[4]));
+  const blockedSet = new Set((blocked||[]).map(b=>b.fecha));
+  const blockedMap = {};(blocked||[]).forEach(b=>blockedMap[b.fecha]=b.motivo);
+
+  const dur = parseInt(cfg.duracion_clase_min||'45');
+  document.getElementById('agendaContent').innerHTML = dates.map((dt,i) => {
+    const ds = fmt(dt);
+    const isBlocked = blockedSet.has(ds);
+    if(isBlocked) return `
+      <div class="agenda-day">
+        <div class="agenda-day-header" style="background:#fee2e2;color:#991b1b">${DAYS[i]} ${dt.getDate()} ${MONTHS_SHORT[dt.getMonth()]} <span>&#128683; ${esc(blockedMap[ds]||'Bloqueado')}</span></div>
+      </div>`;
+
+    const daySlots = allSlots.filter(s=>s.dia_semana===i&&s.activo);
+    const dayRes = (res||[]).filter(r=>r.fecha===ds);
+    const booked = dayRes.length;
+    const total = daySlots.length;
+    const pct = total>0 ? Math.round(booked/total*100) : 0;
+
+    return `
+      <div class="agenda-day">
+        <div class="agenda-day-header">
+          <span>${DAYS[i]} ${dt.getDate()} ${MONTHS_SHORT[dt.getMonth()]}</span>
+          <span class="occupancy">${booked}/${total} (${pct}%)</span>
         </div>
-        <div class="stat-box">
-          <div class="num">${totalSlots}</div>
-          <div class="lbl">Slots / semana</div>
-        </div>
-        <div class="stat-box">
-          <div class="num">${occupancy}%</div>
-          <div class="lbl">Ocupacion</div>
-        </div>
-      `;
-    }
-
-    // ==========================================
-    // TABS
-    // ==========================================
-    function switchTab(name) {
-      ['agenda', 'alumnos', 'horarios', 'config'].forEach(t => {
-        document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
-      });
-      document.querySelectorAll('.tab').forEach((btn, i) => {
-        btn.classList.toggle('active', btn.textContent.toLowerCase().includes(name.slice(0, 4)));
-      });
-    }
-
-    // ==========================================
-    // STUDENTS
-    // ==========================================
-    async function loadStudents() {
-      const { data } = await sb.from('ae_alumnos').select('*').order('nombre');
-      allStudents = data || [];
-      renderStudents(allStudents);
-    }
-
-    function filterStudents(q) {
-      const filtered = allStudents.filter(s =>
-        s.nombre.toLowerCase().includes(q.toLowerCase()) ||
-        s.telefono.includes(q)
-      );
-      renderStudents(filtered);
-    }
-
-    async function renderStudents(students) {
-      document.getElementById('studentCount').textContent = allStudents.filter(s => s.activo).length;
-
-      // Get this week's bookings count per student
-      const weekDates = getWeekDates(0);
-      const weekStart = formatDate(weekDates[0]);
-      const weekEnd = formatDate(weekDates[4]);
-      const { data: reservas } = await sb.from('ae_reservas').select('alumno_id')
-        .gte('fecha', weekStart).lte('fecha', weekEnd).eq('estado', 'confirmada');
-
-      const countMap = {};
-      (reservas || []).forEach(r => {
-        countMap[r.alumno_id] = (countMap[r.alumno_id] || 0) + 1;
-      });
-
-      const html = students.map(s => `
-        <tr style="${!s.activo ? 'opacity:0.5' : ''}">
-          <td><strong>${s.nombre}</strong></td>
-          <td>${s.telefono}</td>
-          <td><code>${s.pin}</code></td>
-          <td><span class="badge badge-blue">${countMap[s.id] || 0} / ${allConfig.max_clases_alumno_semana || 2}</span></td>
-          <td>${s.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
-          <td>
-            <button class="btn btn-small ${s.activo ? 'btn-warning' : 'btn-success'}"
-                    onclick="toggleStudent('${s.id}', ${!s.activo})">
-              ${s.activo ? 'Desactivar' : 'Activar'}
-            </button>
-            <button class="btn btn-small btn-danger" onclick="deleteStudent('${s.id}', '${s.nombre}')">Eliminar</button>
-          </td>
-        </tr>
-      `).join('');
-
-      document.getElementById('studentsTable').innerHTML = html ||
-        '<tr><td colspan="6" style="text-align:center;color:var(--text-light)">No hay alumnos</td></tr>';
-    }
-
-    async function addStudent() {
-      const nombre = document.getElementById('newName').value.trim();
-      const telefono = document.getElementById('newPhone').value.replace(/\s/g, '');
-      const pin = document.getElementById('newPin').value.trim() || '1234';
-
-      if (!nombre || !telefono) return showToast('Nombre y telefono son obligatorios', 'error');
-
-      const { error } = await sb.from('ae_alumnos').insert({ nombre, telefono, pin });
-      if (error) {
-        if (error.message.includes('unique') || error.message.includes('duplicate')) {
-          showToast('Ya existe un alumno con ese telefono', 'error');
-        } else {
-          showToast('Error: ' + error.message, 'error');
-        }
-        return;
-      }
-
-      showToast('Alumno agregado', 'success');
-      document.getElementById('newName').value = '';
-      document.getElementById('newPhone').value = '';
-      document.getElementById('newPin').value = '1234';
-      loadStudents();
-      loadStats();
-    }
-
-    async function toggleStudent(id, activo) {
-      await sb.from('ae_alumnos').update({ activo }).eq('id', id);
-      showToast(activo ? 'Alumno activado' : 'Alumno desactivado', 'success');
-      loadStudents();
-      loadStats();
-    }
-
-    async function deleteStudent(id, nombre) {
-      if (!confirm(`Eliminar a ${nombre}? Se borraran todas sus reservas.`)) return;
-      await sb.from('ae_alumnos').delete().eq('id', id);
-      showToast('Alumno eliminado', 'success');
-      loadStudents();
-      loadStats();
-    }
-
-    // ==========================================
-    // SLOTS
-    // ==========================================
-    async function loadSlots() {
-      const { data } = await sb.from('ae_slots').select('*').order('dia_semana').order('hora_inicio');
-      allSlots = data || [];
-      renderSlots();
-    }
-
-    function renderSlots() {
-      const html = DAYS.map((day, i) => {
-        const daySlots = allSlots.filter(s => s.dia_semana === i);
-        const slotsHtml = daySlots.map(s => `
-          <span style="display:inline-flex;align-items:center;gap:4px;background:${s.activo ? '#dbeafe' : '#fee2e2'};
-                padding:4px 10px;border-radius:6px;font-size:0.8rem;margin:2px">
-            ${s.hora_inicio.slice(0, 5)}
-            <button onclick="toggleSlot(${s.id}, ${!s.activo})"
-                    style="background:none;border:none;cursor:pointer;font-size:0.7rem">
-              ${s.activo ? '&#10005;' : '&#10003;'}
-            </button>
-          </span>
-        `).join('');
-
-        return `
-          <div style="margin-bottom:12px">
-            <strong style="font-size:0.85rem">${day}</strong>
-            <span style="font-size:0.75rem;color:var(--text-light)"> (${daySlots.filter(s=>s.activo).length} slots)</span>
-            <div style="margin-top:6px">${slotsHtml || '<span style="color:var(--text-light);font-size:0.8rem">Sin horarios</span>'}</div>
-          </div>
-        `;
-      }).join('');
-
-      document.getElementById('slotsConfig').innerHTML = html;
-    }
-
-    async function addSlot() {
-      const dia = parseInt(document.getElementById('newSlotDay').value);
-      const hora = document.getElementById('newSlotTime').value;
-      if (!hora) return showToast('Selecciona una hora', 'error');
-
-      const { error } = await sb.from('ae_slots').insert({ dia_semana: dia, hora_inicio: hora });
-      if (error) {
-        if (error.message.includes('unique') || error.message.includes('duplicate')) {
-          showToast('Ese horario ya existe', 'error');
-        } else {
-          showToast('Error: ' + error.message, 'error');
-        }
-        return;
-      }
-      showToast('Horario agregado', 'success');
-      loadSlots();
-    }
-
-    async function toggleSlot(id, activo) {
-      await sb.from('ae_slots').update({ activo }).eq('id', id);
-      loadSlots();
-    }
-
-    // ==========================================
-    // AGENDA
-    // ==========================================
-    function changeAdminWeek(dir) {
-      adminWeekOffset += dir;
-      loadAgenda();
-    }
-
-    async function loadAgenda() {
-      const dates = getWeekDates(adminWeekOffset);
-      const weekStart = formatDate(dates[0]);
-      const weekEnd = formatDate(dates[4]);
-      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-      document.getElementById('adminWeekLabel').textContent =
-        `${dates[0].getDate()} ${monthNames[dates[0].getMonth()]} - ${dates[4].getDate()} ${monthNames[dates[4].getMonth()]}`;
-
-      const { data: reservas } = await sb.from('ae_reservas')
-        .select('*, ae_alumnos(nombre, telefono)')
-        .gte('fecha', weekStart).lte('fecha', weekEnd)
-        .eq('estado', 'confirmada')
-        .order('hora_inicio');
-
-      const html = dates.map((date, i) => {
-        const dateStr = formatDate(date);
-        const daySlots = allSlots.filter(s => s.dia_semana === i && s.activo);
-        const dayReservas = (reservas || []).filter(r => r.fecha === dateStr);
-
-        const slotsHtml = daySlots.map(slot => {
-          const reserva = dayReservas.find(r => r.hora_inicio === slot.hora_inicio + ':00');
-          const dur = parseInt(allConfig.duracion_clase_min || '45');
-          const endTime = addMinutes(slot.hora_inicio, dur);
-
-          if (reserva) {
-            return `
-              <div class="agenda-slot">
-                <span class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</span>
-                <span class="student"><strong>${reserva.ae_alumnos.nombre}</strong> <small>(${reserva.ae_alumnos.telefono})</small></span>
-                <button class="btn btn-small btn-danger" onclick="adminCancelBooking('${reserva.id}')">Cancelar</button>
-              </div>
-            `;
-          }
-          return `
-            <div class="agenda-slot free">
-              <span class="time">${slot.hora_inicio.slice(0,5)} - ${endTime}</span>
-              <span class="student">Libre</span>
+        <div class="agenda-bar"><div class="agenda-bar-fill" style="width:${pct}%;background:${pct>80?'var(--danger)':pct>50?'var(--warning)':'var(--primary-light)'}"></div></div>
+        ${daySlots.map(slot => {
+          const r = dayRes.find(x=>x.hora_inicio===slot.hora_inicio+':00');
+          const end = addMins(slot.hora_inicio,dur);
+          return r ? `
+            <div class="agenda-row">
+              <span class="agenda-time">${slot.hora_inicio.slice(0,5)} - ${end}</span>
+              <span class="agenda-student"><strong>${esc(r.ae_alumnos.nombre)}</strong> <small style="color:var(--text-muted)">${r.ae_alumnos.telefono}</small></span>
+              <button class="btn btn-sm btn-danger" onclick="adminCancel('${r.id}')">Cancelar</button>
             </div>
-          `;
-        }).join('');
+          ` : `
+            <div class="agenda-row free">
+              <span class="agenda-time">${slot.hora_inicio.slice(0,5)} - ${end}</span>
+              <span class="agenda-student">Libre</span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+}
 
-        const booked = dayReservas.length;
-        const total = daySlots.length;
+async function adminCancel(id) {
+  if(!confirm('Cancelar esta reserva?')) return;
+  await sb.from('ae_reservas').update({estado:'cancelada'}).eq('id',id);
+  toast('Reserva cancelada','success'); loadAgenda(); loadStats();
+}
 
-        return `
-          <div class="agenda-day">
-            <h4>${DAYS[i]} ${date.getDate()} ${monthNames[date.getMonth()]}
-              <span style="float:right;font-weight:400;font-size:0.8rem">${booked}/${total} ocupados</span>
-            </h4>
-            ${slotsHtml || '<p style="padding:10px;color:var(--text-light);font-size:0.85rem">Sin horarios</p>'}
-          </div>
-        `;
-      }).join('');
+// AVISOS
+async function loadAvisos() {
+  const {data} = await sb.from('ae_avisos').select('*').order('created_at',{ascending:false});
+  document.getElementById('avisosList').innerHTML = (data||[]).map(a=>`
+    <div class="aviso-card">
+      <div class="aviso-content">
+        <div class="aviso-title">${esc(a.titulo)} ${a.activo?'<span class="badge badge-green">Activo</span>':'<span class="badge badge-gray">Oculto</span>'}</div>
+        <div class="aviso-msg">${esc(a.mensaje)}</div>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm ${a.activo?'btn-warning':'btn-success'}" onclick="toggleAviso(${a.id},${!a.activo})">${a.activo?'Ocultar':'Mostrar'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteAviso(${a.id})">&#128465;</button>
+      </div>
+    </div>
+  `).join('') || '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px">No hay avisos</p>';
+}
 
-      document.getElementById('agendaContent').innerHTML = html;
-    }
+async function addAviso() {
+  const t=document.getElementById('newAvisoTitle').value.trim();
+  const m=document.getElementById('newAvisoMsg').value.trim();
+  if(!t||!m) return toast('Titulo y mensaje obligatorios','error');
+  await sb.from('ae_avisos').insert({titulo:t,mensaje:m});
+  toast('Aviso publicado','success');
+  document.getElementById('newAvisoTitle').value=''; document.getElementById('newAvisoMsg').value='';
+  loadAvisos();
+}
 
-    async function adminCancelBooking(id) {
-      if (!confirm('Cancelar esta reserva?')) return;
-      await sb.from('ae_reservas').update({ estado: 'cancelada' }).eq('id', id);
-      showToast('Reserva cancelada', 'success');
-      loadAgenda();
-      loadStats();
-    }
+async function toggleAviso(id,val) {
+  await sb.from('ae_avisos').update({activo:val}).eq('id',id);
+  loadAvisos();
+}
 
-    // ==========================================
-    // CONFIG
-    // ==========================================
-    async function saveConfig() {
-      const updates = [
-        { key: 'max_clases_alumno_semana', value: document.getElementById('cfgMaxWeek').value },
-        { key: 'max_clases_dia', value: document.getElementById('cfgMaxDay').value },
-        { key: 'duracion_clase_min', value: document.getElementById('cfgDuration').value },
-        { key: 'admin_pin', value: document.getElementById('cfgAdminPin').value },
-      ];
+async function deleteAviso(id) {
+  if(!confirm('Eliminar aviso?')) return;
+  await sb.from('ae_avisos').delete().eq('id',id);
+  toast('Aviso eliminado','success'); loadAvisos();
+}
 
-      for (const u of updates) {
-        await sb.from('ae_config').update({ value: u.value }).eq('key', u.key);
-      }
+// BLOCKED DAYS
+async function loadBlocked() {
+  const {data} = await sb.from('ae_dias_bloqueados').select('*').order('fecha');
+  document.getElementById('blockedList').innerHTML = (data||[]).map(b=>{
+    const d=new Date(b.fecha+'T00:00:00');
+    const di=d.getDay()-1;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div><strong>${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</strong> <span style="color:var(--text-muted);font-size:0.85rem">${esc(b.motivo||'')}</span></div>
+        <button class="btn btn-sm btn-danger" onclick="unblockDay(${b.id})">Desbloquear</button>
+      </div>`;
+  }).join('') || '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px">No hay dias bloqueados</p>';
+}
 
-      allConfig = {};
-      updates.forEach(u => allConfig[u.key] = u.value);
-      showToast('Configuracion guardada', 'success');
-    }
+async function blockDay() {
+  const f=document.getElementById('blockDate').value;
+  const m=document.getElementById('blockReason').value.trim();
+  if(!f) return toast('Selecciona una fecha','error');
+  const {error} = await sb.from('ae_dias_bloqueados').insert({fecha:f,motivo:m});
+  if(error){ toast(error.message.includes('unique')?'Ese dia ya esta bloqueado':'Error','error'); return; }
+  toast('Dia bloqueado','success');
+  document.getElementById('blockDate').value=''; document.getElementById('blockReason').value='';
+  loadBlocked(); loadAgenda();
+}
 
-    // ==========================================
-    // UTILS
-    // ==========================================
-    function getWeekDates(offset) {
-      const now = new Date();
-      const monday = new Date(now);
-      const day = now.getDay();
-      const diff = day === 0 ? -6 : 1 - day;
-      monday.setDate(now.getDate() + diff + (offset * 7));
-      monday.setHours(0, 0, 0, 0);
-      const dates = [];
-      for (let i = 0; i < 5; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        dates.push(d);
-      }
-      return dates;
-    }
+async function unblockDay(id) {
+  await sb.from('ae_dias_bloqueados').delete().eq('id',id);
+  toast('Dia desbloqueado','success'); loadBlocked(); loadAgenda();
+}
 
-    function formatDate(d) { return d.toISOString().split('T')[0]; }
+// CONFIG
+async function saveConfig() {
+  const updates = [
+    {key:'nombre_autoescuela', value:document.getElementById('cfgName').value},
+    {key:'telefono_autoescuela', value:document.getElementById('cfgPhone').value},
+    {key:'max_clases_alumno_semana', value:document.getElementById('cfgMaxWeek').value},
+    {key:'max_clases_dia', value:document.getElementById('cfgMaxDay').value},
+    {key:'duracion_clase_min', value:document.getElementById('cfgDuration').value},
+    {key:'admin_pin', value:document.getElementById('cfgAdminPin').value},
+    {key:'permitir_registro', value:document.getElementById('cfgRegister').value},
+  ];
+  for(const u of updates) await sb.from('ae_config').update({value:u.value}).eq('key',u.key);
+  cfg={}; updates.forEach(u=>cfg[u.key]=u.value);
+  toast('Configuracion guardada','success');
+}
 
-    function addMinutes(timeStr, mins) {
-      const [h, m] = timeStr.split(':').map(Number);
-      const total = h * 60 + m + mins;
-      return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-    }
-
-    function showToast(msg, type = '') {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = 'toast show ' + type;
-      setTimeout(() => t.className = 'toast', 3000);
-    }
-  </script>
+// UTILS
+function getWeekDates(off) {
+  const now=new Date(); const m=new Date(now); const d=now.getDay();
+  m.setDate(now.getDate()+(d===0?-6:1-d)+off*7); m.setHours(0,0,0,0);
+  return Array.from({length:5},(_,i)=>{const dt=new Date(m);dt.setDate(m.getDate()+i);return dt;});
+}
+function fmt(d){return d.toISOString().split('T')[0];}
+function addMins(t,m){const[h,min]=t.split(':').map(Number);const tot=h*60+min+m;return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function toast(msg,type=''){
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div');
+  t.className='toast '+type;
+  t.innerHTML=`<span>${{success:'&#9989;',error:'&#10060;'}[type]||'&#8505;'}</span>${esc(msg)}`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300);},3500);
+}
+</script>
 </body>
 </html>

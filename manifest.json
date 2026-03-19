@@ -1,0 +1,17 @@
+{
+  "name": "Autoescuela - Reserva clases",
+  "short_name": "Autoescuela",
+  "description": "Reserva tus clases de conducir online",
+  "start_url": "/autoescuela-booking/",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#1e40af",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
