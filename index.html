@@ -1691,7 +1691,7 @@ async function cancelBooking(id) {
 
 // =============================================
 // =============================================
-// PAIR BOOKING
+// PAIR BOOKING (two-step: chooser picks slot, partner picks before/after)
 // =============================================
 function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
   if (!myPareja) {
@@ -1703,146 +1703,239 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
   const isAlumno1 = currentUser.id === myPareja.alumno1_id || currentUser.id === myPareja.alumno1.id;
   const partner = isAlumno1 ? myPareja.alumno2 : myPareja.alumno1;
   const myTurn = (isAlumno1 && myPareja.turno_elige === 1) || (!isAlumno1 && myPareja.turno_elige === 2);
+  const dur = parseInt(cfg.duracion_clase_min || '45');
 
   document.getElementById('pairPartnerName').textContent = 'Con ' + partner.nombre;
 
-  // Check existing pair reservation this week
+  // Check existing pair reservations this week
   const myPairRes = weekPairReservas.filter(pr => pr.pareja_id === myPareja.id);
 
-  if (myPairRes.length > 0) {
-    // Show existing pair booking
-    const dur = parseInt(cfg.duracion_clase_min || '45');
-    const html = myPairRes.map(pr => {
-      const d = new Date(pr.fecha + 'T00:00:00');
-      const di = d.getDay() - 1;
-      const endTime = addMins(pr.hora_slot2, dur);
-      return `
-        <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)">
-          <div class="my-booking-left">
-            <div class="my-booking-day" style="background:#7c3aed">
-              <span class="mbd-day">${DAYS_SHORT[di >= 0 ? di : 0]}</span>
-              <span class="mbd-num">${d.getDate()}</span>
-            </div>
-            <div class="my-booking-info">
-              <div class="mbi-time">${pr.hora_slot1.slice(0,5)} - ${endTime} (90 min)</div>
-              <div class="mbi-detail">${pr.estado === 'pendiente' ? 'Pendiente de confirmacion' : 'Confirmada'} | Con ${partner.nombre}</div>
-            </div>
+  // CASE 1: Complete pair booking exists (both slots filled)
+  const completePair = myPairRes.find(pr => pr.hora_slot1 && pr.hora_slot2);
+  if (completePair) {
+    const d = new Date(completePair.fecha + 'T00:00:00');
+    const di = d.getDay() - 1;
+    const first = completePair.hora_slot1.slice(0,5) < completePair.hora_slot2.slice(0,5) ? completePair.hora_slot1 : completePair.hora_slot2;
+    const second = first === completePair.hora_slot1 ? completePair.hora_slot2 : completePair.hora_slot1;
+    const endTime = addMins(second, dur);
+    document.getElementById('pairContent').innerHTML = `
+      <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)">
+        <div class="my-booking-left">
+          <div class="my-booking-day" style="background:#7c3aed">
+            <span class="mbd-day">${DAYS_SHORT[di >= 0 ? di : 0]}</span>
+            <span class="mbd-num">${d.getDate()}</span>
           </div>
-        </div>`;
-    }).join('');
-    document.getElementById('pairContent').innerHTML = html;
-    return;
-  }
-
-  // No pair booking yet this week
-  if (!myTurn) {
-    document.getElementById('pairContent').innerHTML = `
-      <div class="empty-state" style="padding:20px">
-        <div class="empty-icon">&#9203;</div>
-        <div class="empty-text">Es el turno de <strong>${partner.nombre}</strong> para elegir la hora</div>
-        <div class="empty-text" style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)">Cuando reserve, tu clase aparecera automaticamente</div>
-      </div>`;
-    return;
-  }
-
-  // It's my turn - show available double slots
-  const date = dates[selectedDay];
-  const dateStr = fmtDate(date);
-  const now = new Date();
-  const isToday = dateStr === fmtDate(now);
-  const isPastDay = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dur = parseInt(cfg.duracion_clase_min || '45');
-
-  if (isPastDay || blockedDays.includes(dateStr)) {
-    document.getElementById('pairContent').innerHTML = `
-      <div class="empty-state" style="padding:20px">
-        <div class="empty-text" style="color:var(--text-muted)">Selecciona un dia disponible para reservar</div>
-      </div>`;
-    return;
-  }
-
-  const daySlots = slots.filter(s => s.dia_semana === selectedDay);
-  const dayRes = weekReservas.filter(r => r.fecha === dateStr);
-  const occupiedSet = new Set(dayRes.map(r => r.hora_inicio.slice(0,5)));
-
-  // Find consecutive free pairs
-  const doubleSlots = [];
-  for (let i = 0; i < daySlots.length - 1; i++) {
-    const s1 = daySlots[i].hora_inicio.slice(0,5);
-    const s2 = daySlots[i+1].hora_inicio.slice(0,5);
-    const key1 = dateStr + '_' + s1;
-    const key2 = dateStr + '_' + s2;
-    const s1Past = isToday && daySlots[i].hora_inicio < now.toTimeString().slice(0,5);
-    const s1Free = !occupiedSet.has(s1) && !blockedSlotSet.has(key1) && !pairSlotSet.has(key1) && !s1Past;
-    const s2Free = !occupiedSet.has(s2) && !blockedSlotSet.has(key2) && !pairSlotSet.has(key2);
-
-    if (s1Free && s2Free) {
-      doubleSlots.push({ slot1: s1, slot2: s2, end: addMins(s2, dur) });
-    }
-  }
-
-  if (!doubleSlots.length) {
-    document.getElementById('pairContent').innerHTML = `
-      <div class="empty-state" style="padding:20px">
-        <div class="empty-text">No hay 2 horas consecutivas libres este dia</div>
-        <div class="empty-text" style="font-size:0.75rem;color:var(--text-muted)">Prueba otro dia</div>
-      </div>`;
-    return;
-  }
-
-  document.getElementById('pairContent').innerHTML = `
-    <p style="font-size:0.8rem;color:var(--text-secondary);padding:8px 4px">Es tu turno de elegir. Selecciona un bloque de 90 min:</p>
-    ${doubleSlots.map(ds => `
-      <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="confirmPairBook('${dateStr}','${ds.slot1}','${ds.slot2}','${ds.slot1}','${ds.end}','${DAYS[selectedDay]}')">
-        <div class="slot-left">
-          <div class="slot-time-badge"><div class="time">${ds.slot1}</div><div class="end-time">${ds.end}</div></div>
-          <div class="slot-separator" style="background:#8b5cf6"></div>
-          <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">90 min en pareja</div><div class="slot-detail">Con ${partner.nombre}</div></div>
+          <div class="my-booking-info">
+            <div class="mbi-time">${first.slice(0,5)} - ${endTime} (90 min)</div>
+            <div class="mbi-detail">${completePair.estado === 'pendiente' ? 'Pendiente de confirmacion' : 'Confirmada'} | Con ${partner.nombre}</div>
+          </div>
         </div>
-        <button class="slot-action-btn" style="background:#7c3aed">Reservar</button>
+      </div>`;
+    return;
+  }
+
+  // CASE 2: Partner chose their slot, I need to pick before or after
+  const waitingForMe = myPairRes.find(pr => pr.hora_slot1 && !pr.hora_slot2 && pr.elegido_por !== currentUser.id);
+  if (waitingForMe) {
+    const chosenSlot = waitingForMe.hora_slot1.slice(0,5);
+    const d = new Date(waitingForMe.fecha + 'T00:00:00');
+    const di = d.getDay() - 1;
+    const dateStr = waitingForMe.fecha;
+
+    // Find adjacent slots
+    const daySlots = slots.filter(s => s.dia_semana === di >= 0 ? di : 0).map(s => s.hora_inicio.slice(0,5)).sort();
+    const chosenIdx = daySlots.indexOf(chosenSlot);
+    const dayRes = weekReservas.filter(r => r.fecha === dateStr);
+    const occupiedSet = new Set(dayRes.map(r => r.hora_inicio.slice(0,5)));
+
+    const options = [];
+    // Slot before
+    if (chosenIdx > 0) {
+      const before = daySlots[chosenIdx - 1];
+      const key = dateStr + '_' + before;
+      if (!occupiedSet.has(before) && !blockedSlotSet.has(key) && !pairSlotSet.has(key)) {
+        options.push({ time: before, label: 'Antes', end: addMins(before, dur) });
+      }
+    }
+    // Slot after
+    if (chosenIdx < daySlots.length - 1) {
+      const after = daySlots[chosenIdx + 1];
+      const key = dateStr + '_' + after;
+      if (!occupiedSet.has(after) && !blockedSlotSet.has(key) && !pairSlotSet.has(key)) {
+        options.push({ time: after, label: 'Despues', end: addMins(after, dur) });
+      }
+    }
+
+    document.getElementById('pairContent').innerHTML = `
+      <div style="padding:12px;background:#f5f3ff;border-radius:10px;margin-bottom:10px">
+        <p style="font-size:0.85rem;font-weight:600;color:#7c3aed">${partner.nombre} eligio el ${DAYS[di >= 0 ? di : 0]} a las ${chosenSlot}</p>
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px">Elige tu clase antes o despues:</p>
       </div>
-    `).join('')}`;
+      ${options.length ? options.map(opt => `
+        <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="confirmPairPick('${waitingForMe.id}','${opt.time}','${opt.time}','${opt.end}','${DAYS[di >= 0 ? di : 0]}')">
+          <div class="slot-left">
+            <div class="slot-time-badge"><div class="time">${opt.time}</div><div class="end-time">${opt.end}</div></div>
+            <div class="slot-separator" style="background:#8b5cf6"></div>
+            <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">${opt.label} de ${partner.nombre}</div><div class="slot-detail">${dur} min</div></div>
+          </div>
+          <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
+        </div>
+      `).join('') : '<p style="padding:16px;text-align:center;color:var(--text-muted)">No hay horas libres antes o despues</p>'}`;
+    return;
+  }
+
+  // CASE 3: I already chose, waiting for partner
+  const waitingForPartner = myPairRes.find(pr => pr.hora_slot1 && !pr.hora_slot2 && pr.elegido_por === currentUser.id);
+  if (waitingForPartner) {
+    const d = new Date(waitingForPartner.fecha + 'T00:00:00');
+    const di = d.getDay() - 1;
+    document.getElementById('pairContent').innerHTML = `
+      <div class="my-booking-item fade-in" style="background:linear-gradient(135deg,#fffbeb,#fef3c7)">
+        <div class="my-booking-left">
+          <div class="my-booking-day" style="background:var(--warning)">
+            <span class="mbd-day">${DAYS_SHORT[di >= 0 ? di : 0]}</span>
+            <span class="mbd-num">${d.getDate()}</span>
+          </div>
+          <div class="my-booking-info">
+            <div class="mbi-time">Tu clase: ${waitingForPartner.hora_slot1.slice(0,5)}</div>
+            <div class="mbi-detail">Esperando a que ${partner.nombre} elija antes o despues</div>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // CASE 4: No pair booking, it's my turn to pick first
+  if (myTurn) {
+    const date = dates[selectedDay];
+    const dateStr = fmtDate(date);
+    const now = new Date();
+    const isToday = dateStr === fmtDate(now);
+    const isPastDay = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (isPastDay || blockedDays.includes(dateStr)) {
+      document.getElementById('pairContent').innerHTML = `
+        <div class="empty-state" style="padding:20px">
+          <div class="empty-text" style="color:var(--text-muted)">Selecciona un dia disponible</div>
+        </div>`;
+      return;
+    }
+
+    const daySlots = slots.filter(s => s.dia_semana === selectedDay);
+    const dayRes = weekReservas.filter(r => r.fecha === dateStr);
+    const occupiedSet = new Set(dayRes.map(r => r.hora_inicio.slice(0,5)));
+
+    // Find slots that have at least one free adjacent slot
+    const validSlots = daySlots.filter((slot, i) => {
+      const t = slot.hora_inicio.slice(0,5);
+      const key = dateStr + '_' + t;
+      const slotPast = isToday && slot.hora_inicio < now.toTimeString().slice(0,5);
+      if (occupiedSet.has(t) || blockedSlotSet.has(key) || pairSlotSet.has(key) || slotPast) return false;
+
+      // Check if before or after is free
+      const hasBefore = i > 0 && (() => {
+        const bt = daySlots[i-1].hora_inicio.slice(0,5);
+        return !occupiedSet.has(bt) && !blockedSlotSet.has(dateStr+'_'+bt) && !pairSlotSet.has(dateStr+'_'+bt);
+      })();
+      const hasAfter = i < daySlots.length - 1 && (() => {
+        const at = daySlots[i+1].hora_inicio.slice(0,5);
+        return !occupiedSet.has(at) && !blockedSlotSet.has(dateStr+'_'+at) && !pairSlotSet.has(dateStr+'_'+at);
+      })();
+      return hasBefore || hasAfter;
+    });
+
+    if (!validSlots.length) {
+      document.getElementById('pairContent').innerHTML = `
+        <div class="empty-state" style="padding:20px">
+          <div class="empty-text">No hay horas con hueco adyacente libre</div>
+          <div class="empty-text" style="font-size:0.75rem;color:var(--text-muted)">Necesitas 2 horas consecutivas libres</div>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('pairContent').innerHTML = `
+      <p style="font-size:0.8rem;color:var(--text-secondary);padding:8px 4px">Es tu turno. Elige tu hora (${partner.nombre} elegira antes o despues):</p>
+      ${validSlots.map(slot => {
+        const t = slot.hora_inicio.slice(0,5);
+        const end = addMins(t, dur);
+        return `
+          <div class="slot-item available" style="border-color:#c4b5fd;background:#faf5ff" onclick="confirmPairFirst('${dateStr}','${t}','${t}','${end}','${DAYS[selectedDay]}')">
+            <div class="slot-left">
+              <div class="slot-time-badge"><div class="time">${t}</div><div class="end-time">${end}</div></div>
+              <div class="slot-separator" style="background:#8b5cf6"></div>
+              <div class="slot-info"><div class="slot-status-text" style="color:#7c3aed">Tu clase en pareja</div><div class="slot-detail">${partner.nombre} elegira adyacente</div></div>
+            </div>
+            <button class="slot-action-btn" style="background:#7c3aed">Elegir</button>
+          </div>`;
+      }).join('')}`;
+    return;
+  }
+
+  // CASE 5: Not my turn, no booking yet
+  document.getElementById('pairContent').innerHTML = `
+    <div class="empty-state" style="padding:20px">
+      <div class="empty-icon">&#9203;</div>
+      <div class="empty-text">Es el turno de <strong>${partner.nombre}</strong> para elegir primero</div>
+      <div class="empty-text" style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)">Despues podras elegir antes o despues de su hora</div>
+    </div>`;
 }
 
-function confirmPairBook(fecha, slot1, slot2, horaDisp, endDisp, dia) {
-  pendingFn = () => bookPairSlot(fecha, slot1, slot2);
+// Step 1: Chooser picks their slot
+function confirmPairFirst(fecha, hora, horaDisp, endDisp, dia) {
+  pendingFn = () => bookPairFirst(fecha, hora);
   document.getElementById('modalIcon').className = 'modal-icon confirm';
   document.getElementById('modalIcon').innerHTML = '&#128101;';
-  document.getElementById('modalTitle').textContent = 'Reservar clase en pareja';
-  document.getElementById('modalMsg').innerHTML = `Reservar <strong>${dia}</strong> de <strong>${horaDisp}</strong> a <strong>${endDisp}</strong>?<br><small>90 min en pareja</small>`;
+  document.getElementById('modalTitle').textContent = 'Elegir hora en pareja';
+  document.getElementById('modalMsg').innerHTML = `Tu clase: <strong>${dia}</strong> a las <strong>${horaDisp}</strong><br><small>Tu compañero elegira la clase anterior o siguiente</small>`;
   document.getElementById('modalConfirmBtn').className = 'btn btn-success';
-  document.getElementById('modalConfirmBtn').textContent = 'Reservar';
+  document.getElementById('modalConfirmBtn').textContent = 'Confirmar';
   document.getElementById('modalOverlay').classList.add('active');
 }
 
-async function bookPairSlot(fecha, slot1, slot2) {
+async function bookPairFirst(fecha, hora) {
   try {
     const { error } = await sb.from('ae_reservas_pareja').insert({
       pareja_id: myPareja.id,
       fecha,
-      hora_slot1: slot1,
-      hora_slot2: slot2,
+      hora_slot1: hora,
+      hora_slot2: null,
       elegido_por: currentUser.id,
       estado: 'pendiente'
     });
+    if (error) { toast('Error: ' + error.message, 'error'); await renderWeek(); return; }
+    toast('Hora elegida. Esperando a tu compañero', 'success');
+    await renderWeek();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
 
-    if (error) {
-      toast('Error: ' + (error.message || 'No se pudo reservar'), 'error');
-      await renderWeek();
-      return;
-    }
+// Step 2: Partner picks before or after
+function confirmPairPick(reservaId, hora, horaDisp, endDisp, dia) {
+  pendingFn = () => bookPairSecond(reservaId, hora);
+  document.getElementById('modalIcon').className = 'modal-icon confirm';
+  document.getElementById('modalIcon').innerHTML = '&#128101;';
+  document.getElementById('modalTitle').textContent = 'Elegir tu hora';
+  document.getElementById('modalMsg').innerHTML = `Tu clase: <strong>${dia}</strong> a las <strong>${horaDisp}</strong>`;
+  document.getElementById('modalConfirmBtn').className = 'btn btn-success';
+  document.getElementById('modalConfirmBtn').textContent = 'Confirmar';
+  document.getElementById('modalOverlay').classList.add('active');
+}
 
-    // Flip turn
+async function bookPairSecond(reservaId, hora) {
+  try {
+    const { error } = await sb.from('ae_reservas_pareja')
+      .update({ hora_slot2: hora })
+      .eq('id', reservaId);
+    if (error) { toast('Error: ' + error.message, 'error'); await renderWeek(); return; }
+
+    // Flip turn for next time
     const isAlumno1 = currentUser.id === myPareja.alumno1_id || currentUser.id === myPareja.alumno1.id;
     const newTurn = isAlumno1 ? 2 : 1;
     await sb.from('ae_parejas').update({ turno_elige: newTurn }).eq('id', myPareja.id);
     myPareja.turno_elige = newTurn;
 
-    toast('Clase en pareja reservada - pendiente de confirmacion', 'success');
+    toast('Clase en pareja completa - pendiente de confirmacion', 'success');
     await renderWeek();
-  } catch(e) {
-    toast('Error: ' + e.message, 'error');
-  }
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
 // PROFILE
