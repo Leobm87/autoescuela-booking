@@ -1432,7 +1432,7 @@ async function renderWeek() {
   }
 
   renderMyBookings(dates);
-  renderPairSection(dates, blockedSlotSet, pairSlotSet);
+  await renderPairSection(dates, blockedSlotSet, pairSlotSet);
 }
 
 function selectDay(i) {
@@ -1706,7 +1706,7 @@ async function cancelBooking(id) {
 // =============================================
 // PAIR BOOKING (3-step: chooser picks 90min → partner accepts/rejects → admin confirms)
 // =============================================
-function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
+async function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
   if (!myPareja) {
     document.getElementById('pairSection').classList.add('hidden');
     return;
@@ -1721,7 +1721,10 @@ function renderPairSection(dates, blockedSlotSet, pairSlotSet) {
 
   document.getElementById('pairPartnerName').textContent = 'Con ' + partner.nombre;
 
-  const myPairRes = weekPairReservas.filter(pr => pr.pareja_id === myPareja.id && activeStates.includes(pr.estado));
+  // Load ALL active pair reservations for this pair (not just current week)
+  const {data:allPairRes} = await sb.from('ae_reservas_pareja').select('*')
+    .eq('pareja_id', myPareja.id).in('estado', activeStates).order('fecha');
+  const myPairRes = allPairRes || [];
 
   if (myPairRes.length > 0) {
     const pr = myPairRes[0];
