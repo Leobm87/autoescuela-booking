@@ -817,18 +817,32 @@ async function toggleSlotBlock(fecha, hora) {
 
 async function blockRange(fecha, range) {
   const times = allSlots.filter(s=>s.dia_semana===0&&s.activo).map(s=>s.hora_inicio.slice(0,5));
-  let toBlock;
+  let targetTimes;
   if (range === 'morning') {
-    toBlock = times.filter(t => parseInt(t.split(':')[0]) < 14);
+    targetTimes = times.filter(t => parseInt(t.split(':')[0]) < 14);
   } else {
-    toBlock = times.filter(t => parseInt(t.split(':')[0]) >= 14);
+    targetTimes = times.filter(t => parseInt(t.split(':')[0]) >= 14);
   }
 
-  const inserts = toBlock.map(t => ({fecha, hora_inicio: t}));
-  for (const ins of inserts) {
-    await sb.from('ae_slots_bloqueados').upsert(ins, {onConflict:'fecha,hora_inicio'}).select();
+  // Check if already blocked - if all are blocked, unblock them
+  const {data:existing} = await sb.from('ae_slots_bloqueados').select('hora_inicio')
+    .eq('fecha',fecha);
+  const existingSet = new Set((existing||[]).map(e=>e.hora_inicio.slice(0,5)));
+  const allBlocked = targetTimes.every(t => existingSet.has(t));
+
+  if (allBlocked) {
+    // Unblock all
+    for (const t of targetTimes) {
+      await sb.from('ae_slots_bloqueados').delete().eq('fecha',fecha).eq('hora_inicio',t+':00');
+    }
+    toast(`${range==='morning'?'Mañana':'Tarde'} desbloqueada`, 'success');
+  } else {
+    // Block all
+    for (const t of targetTimes) {
+      await sb.from('ae_slots_bloqueados').upsert({fecha, hora_inicio:t}, {onConflict:'fecha,hora_inicio'}).select();
+    }
+    toast(`${range==='morning'?'Mañana':'Tarde'} bloqueada`, 'success');
   }
-  toast(`${range==='morning'?'Mañana':'Tarde'} bloqueada`, 'success');
   loadCalendar();
 }
 
