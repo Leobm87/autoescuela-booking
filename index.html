@@ -1683,13 +1683,15 @@ function renderSlots(dates, blockedSlotSet = new Set(), pairSlotSet = new Set(),
 
     // Available
     if (!canBook) {
+      const isDispL = myDispSet.has(dateStr + '_' + timeShort);
       return `
         <div class="slot-item limit-reached">
           <div class="slot-left">
             <div class="slot-time-badge"><div class="time">${timeShort}</div><div class="end-time">${endTime}</div></div>
             <div class="slot-separator"></div>
-            <div class="slot-info"><div class="slot-status-text" style="color:var(--warning)">Limite alcanzado</div><div class="slot-detail">Maximo ${maxW} clases/semana</div></div>
+            <div class="slot-info"><div class="slot-status-text" style="color:var(--warning)">Limite alcanzado</div><div class="slot-detail">Puedes marcar disponibilidad</div></div>
           </div>
+          <button onclick="toggleDispQuick('${dateStr}','${timeStr}','${timeShort}')" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:2px solid ${isDispL?'#8b5cf6':'#cbd5e1'};background:${isDispL?'#8b5cf6':'white'};color:${isDispL?'white':'#94a3b8'};font-family:inherit">${isDispL?'&#10003; Disp.':'Disp.'}</button>
         </div>`;
     }
 
