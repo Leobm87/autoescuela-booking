@@ -788,24 +788,30 @@ async function loadParejas() {
 
   // Load pair reservations
   const {data:pRes} = await sb.from('ae_reservas_pareja').select('*,ae_parejas(alumno1:ae_alumnos!alumno1_id(nombre),alumno2:ae_alumnos!alumno2_id(nombre)),elegido:ae_alumnos!elegido_por(nombre)')
-    .in('estado',['pendiente','confirmada']).order('fecha').order('hora_slot1');
+    .in('estado',['propuesta','aceptada','confirmada']).order('fecha').order('hora_slot1');
   const pResList = pRes || [];
 
   if (!pResList.length) {
     document.getElementById('parejasReservasList').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">No hay reservas de parejas</p>';
   } else {
+    const stateColors = {propuesta:'#fef3c7',aceptada:'#dbeafe',confirmada:'#dcfce7'};
+    const stateBorders = {propuesta:'#fde68a',aceptada:'#93c5fd',confirmada:'#a7f3d0'};
+    const stateLabels = {propuesta:'Propuesta (esperando compañero)',aceptada:'Aceptada (pendiente tu confirmacion)',confirmada:'Confirmada'};
+
     document.getElementById('parejasReservasList').innerHTML = pResList.map(r => {
       const d = new Date(r.fecha+'T00:00:00');
       const di = d.getDay()-1;
-      const isPend = r.estado === 'pendiente';
+      const dur = parseInt(cfg.duracion_clase_min||'45');
+      const s2end = addMins(r.hora_slot2||r.hora_slot1, dur);
       return `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px solid ${isPend?'#fde68a':'#a7f3d0'};background:${isPend?'#fffbeb':'#ecfdf5'};border-radius:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:2px solid ${stateBorders[r.estado]||'#e2e8f0'};background:${stateColors[r.estado]||'#f8fafc'};border-radius:10px;margin-bottom:8px">
           <div>
-            <div style="font-weight:700;font-size:0.85rem">${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} - ${r.hora_slot1.slice(0,5)} a ${r.hora_slot2.slice(0,5)}</div>
-            <div style="font-size:0.8rem;color:var(--text-secondary)">${esc(r.ae_parejas.alumno1.nombre)} + ${esc(r.ae_parejas.alumno2.nombre)} | Eligio: ${esc(r.elegido.nombre)} | ${isPend?'Pendiente':'Confirmada'}</div>
+            <div style="font-weight:700;font-size:0.85rem">${DAYS[di>=0?di:0]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} - ${r.hora_slot1.slice(0,5)} a ${s2end} (90 min)</div>
+            <div style="font-size:0.8rem;color:var(--text-secondary)">${esc(r.ae_parejas.alumno1.nombre)} + ${esc(r.ae_parejas.alumno2.nombre)}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">${stateLabels[r.estado]||r.estado}</div>
           </div>
           <div style="display:flex;gap:4px">
-            ${isPend?'<button class="btn btn-sm btn-success" onclick="approvePairBooking(\''+r.id+'\')">Aprobar</button>':''}
+            ${r.estado==='aceptada'?'<button class="btn btn-sm btn-success" onclick="approvePairBooking(\''+r.id+'\')">Confirmar</button>':''}
             <button class="btn btn-sm btn-danger" onclick="cancelPairBooking('${r.id}')">Cancelar</button>
           </div>
         </div>`;
@@ -847,7 +853,13 @@ async function deletePareja(id) {
 
 async function approvePairBooking(id) {
   await sb.from('ae_reservas_pareja').update({estado:'confirmada'}).eq('id',id);
-  toast('Reserva de pareja aprobada','success');
+  // Flip turn for next time
+  const {data:pr} = await sb.from('ae_reservas_pareja').select('pareja_id,elegido_por,ae_parejas(alumno1_id,turno_elige)').eq('id',id).single();
+  if (pr) {
+    const newTurn = pr.elegido_por === pr.ae_parejas.alumno1_id ? 2 : 1;
+    await sb.from('ae_parejas').update({turno_elige:newTurn}).eq('id',pr.pareja_id);
+  }
+  toast('Clase en pareja confirmada','success');
   loadParejas(); loadAgenda(); loadStats();
 }
 
